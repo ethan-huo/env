@@ -1,7 +1,10 @@
 {
   "name": "env-tool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
+  "exports": {
+    "./config": "./src/config.ts"
+  },
   "bin": {
     "env": "./src/cli.ts"
   },
