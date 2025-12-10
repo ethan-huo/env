@@ -1,0 +1,22 @@
+{
+  "name": "env-tool",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "env": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.51.1",
+    "commander": "^14.0.2",
+    "valibot": "^1.2.0"
+  }
+}
