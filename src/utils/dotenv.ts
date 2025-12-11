@@ -117,3 +117,20 @@ export function shouldExclude(key: string, excludePatterns: string[]): boolean {
     return regex.test(key)
   })
 }
+
+/**
+ * 将 EnvRecord 序列化为 .env 文件格式
+ */
+export function serializeEnvRecord(record: EnvRecord): string {
+  return Object.entries(record)
+    .filter(([key]) => !BUILTIN_EXCLUDE_PREFIXES.some(p => key.startsWith(p)))
+    .map(([key, value]) => {
+      // 如果值包含特殊字符，用双引号包裹
+      const needsQuotes = /[\s#"'`$\\]/.test(value) || value.includes('\n')
+      const escaped = needsQuotes
+        ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`
+        : value
+      return `${key}=${escaped}`
+    })
+    .join('\n')
+}

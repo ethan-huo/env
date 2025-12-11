@@ -1,7 +1,8 @@
 import { Command } from 'commander'
-import { symlink, readlink, unlink } from 'node:fs/promises'
+import { symlink, readlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { c } from '../utils/color'
+import { loadEnvFile, serializeEnvRecord } from '../utils/dotenv'
 
 export const initCommand = new Command('init')
   .description('Initialize project')
@@ -62,6 +63,21 @@ ${privateKeyEnvs.join('\n')}
       console.log(c.success('create .env.development'))
     } else {
       console.log(c.dim('- skip .env.development (exists)'))
+    }
+
+    // 2.1 Create .env.local (decrypted version for local dev)
+    const localEnvPath = `${cwd}/.env.local`
+    const localEnvExists = await Bun.file(localEnvPath).exists()
+    if (devEnvExists && (!localEnvExists || options.force)) {
+      try {
+        const envRecord = await loadEnvFile(devEnvPath)
+        await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
+        console.log(c.success('create .env.local (decrypted from .env.development)'))
+      } catch {
+        console.log(c.warn('.env.local skipped (decrypt failed, missing .env.keys?)'))
+      }
+    } else if (localEnvExists) {
+      console.log(c.dim('- skip .env.local (exists)'))
     }
 
     // 3. Create .env.production

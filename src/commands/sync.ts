@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { watch } from 'fs'
 import { loadConfig } from '../config'
-import { getEnvFilePath, loadEnvFile, parseEnvVars } from '../utils/dotenv'
+import { getEnvFilePath, loadEnvFile, parseEnvVars, serializeEnvRecord } from '../utils/dotenv'
 import { generateTypes } from '../utils/typegen'
 import { syncToConvex } from '../utils/sync-convex'
 import { syncToWrangler } from '../utils/sync-wrangler'
@@ -68,6 +68,18 @@ async function runSync(
     const envRecord = await loadEnvFile(envPath)
     const publicPrefixes = config.typegen?.publicPrefix ?? ['VITE_', 'PUBLIC_']
     const vars = parseEnvVars(envRecord, publicPrefixes)
+
+    // Generate .env.local (decrypted version for local dev)
+    if (env === 'dev') {
+      const cwd = process.cwd()
+      const localEnvPath = `${cwd}/.env.local`
+      if (dryRun) {
+        console.log(c.dim(`[dry-run] 将解密生成: ${localEnvPath}`))
+      } else {
+        await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
+        console.log(c.success(`生成解密文件: .env.local`))
+      }
+    }
 
     // Typegen
     if (config.typegen) {
