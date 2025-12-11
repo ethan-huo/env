@@ -1,8 +1,9 @@
 import { Command } from 'commander'
 import { watch } from 'fs'
 import { loadConfig } from '../config'
+import { dirname, join } from 'node:path'
 import { getEnvFilePath, loadEnvFile, parseEnvVars, serializeEnvRecord } from '../utils/dotenv'
-import { generateTypes } from '../utils/typegen'
+import { generateTypes, LAZY_TS_CONTENT } from '../utils/typegen'
 import { syncToConvex } from '../utils/sync-convex'
 import { syncToWrangler } from '../utils/sync-wrangler'
 import { c } from '../utils/color'
@@ -74,10 +75,10 @@ async function runSync(
       const cwd = process.cwd()
       const localEnvPath = `${cwd}/.env.local`
       if (dryRun) {
-        console.log(c.dim(`[dry-run] 将解密生成: ${localEnvPath}`))
+        console.log(c.dim(`[dry-run] would decrypt to: ${localEnvPath}`))
       } else {
         await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
-        console.log(c.success(`生成解密文件: .env.local`))
+        console.log(c.success(`decrypted: .env.local`))
       }
     }
 
@@ -85,13 +86,24 @@ async function runSync(
     if (config.typegen) {
       const types = generateTypes(vars, config.typegen)
       const output = config.typegen.output
+      const schema = config.typegen.schema ?? 'valibot'
 
       if (dryRun) {
-        console.log(c.dim(`[dry-run] 将生成类型到: ${output}`))
+        console.log(c.dim(`[dry-run] would generate types to: ${output}`))
         console.log(c.dim(`[dry-run] ${vars.filter(v => v.scope === 'public').length} public, ${vars.filter(v => v.scope === 'private').length} private`))
       } else {
         await Bun.write(output, types)
-        console.log(c.success(`生成类型: ${output} (${vars.filter(v => v.scope === 'public').length} public, ${vars.filter(v => v.scope === 'private').length} private)`))
+        console.log(c.success(`typegen: ${output} (${vars.filter(v => v.scope === 'public').length} public, ${vars.filter(v => v.scope === 'private').length} private)`))
+
+        // Inject lazy.ts if using schema validation
+        if (schema !== 'none') {
+          const lazyPath = join(dirname(output), 'lazy.ts')
+          const lazyExists = await Bun.file(lazyPath).exists()
+          if (!lazyExists) {
+            await Bun.write(lazyPath, LAZY_TS_CONTENT)
+            console.log(c.success(`injected: ${lazyPath}`))
+          }
+        }
       }
     }
 

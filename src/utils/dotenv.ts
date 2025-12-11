@@ -28,7 +28,7 @@ export async function loadEnvFile(
 ): Promise<EnvRecord> {
   const file = Bun.file(envPath)
   if (!(await file.exists())) {
-    throw new Error(`文件不存在: ${envPath}`)
+    throw new Error(`File not found: ${envPath}`)
   }
 
   const content = await file.text()

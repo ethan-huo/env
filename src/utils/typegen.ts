@@ -1,6 +1,25 @@
 import type { TypegenConfig } from '../config'
 import type { EnvVar } from './dotenv'
 
+export const LAZY_TS_CONTENT = `export function defineLazyProperty<T>(
+  target: object,
+  property: string,
+  getter: () => T,
+) {
+  const value = getter()
+  Object.defineProperty(target, property, { value })
+  return value
+}
+
+export function lazy<T>(getter: () => T): { value: T } {
+  return {
+    get value() {
+      return defineLazyProperty(this, 'value', getter)
+    },
+  }
+}
+`
+
 /**
  * 生成 TypeScript 类型定义
  */
@@ -27,6 +46,7 @@ export function generateTypes(
 function generateValibotTypes(publicVars: EnvVar[], privateVars: EnvVar[]): string {
   const lines: string[] = [
     "import * as v from 'valibot'",
+    "import { lazy } from './lazy'",
     '',
   ]
 
@@ -48,9 +68,21 @@ function generateValibotTypes(publicVars: EnvVar[], privateVars: EnvVar[]): stri
   lines.push('})')
   lines.push('')
 
+  // Merged schema
+  lines.push('export const envSchema = v.object({')
+  lines.push('  ...publicEnvSchema.entries,')
+  lines.push('  ...privateEnvSchema.entries,')
+  lines.push('})')
+  lines.push('')
+
   // Types
   lines.push('export type PublicEnv = v.InferOutput<typeof publicEnvSchema>')
   lines.push('export type PrivateEnv = v.InferOutput<typeof privateEnvSchema>')
+  lines.push('export type Env = v.InferOutput<typeof envSchema>')
+  lines.push('')
+
+  // Lazy env
+  lines.push('export const env$ = lazy(() => v.parse(envSchema, process.env))')
   lines.push('')
 
   lines.push(...generateEnvDtsHint())
@@ -61,6 +93,7 @@ function generateValibotTypes(publicVars: EnvVar[], privateVars: EnvVar[]): stri
 function generateZodTypes(publicVars: EnvVar[], privateVars: EnvVar[]): string {
   const lines: string[] = [
     "import { z } from 'zod'",
+    "import { lazy } from './lazy'",
     '',
   ]
 
@@ -82,9 +115,18 @@ function generateZodTypes(publicVars: EnvVar[], privateVars: EnvVar[]): string {
   lines.push('})')
   lines.push('')
 
+  // Merged schema
+  lines.push('export const envSchema = publicEnvSchema.merge(privateEnvSchema)')
+  lines.push('')
+
   // Types
   lines.push('export type PublicEnv = z.infer<typeof publicEnvSchema>')
   lines.push('export type PrivateEnv = z.infer<typeof privateEnvSchema>')
+  lines.push('export type Env = z.infer<typeof envSchema>')
+  lines.push('')
+
+  // Lazy env
+  lines.push('export const env$ = lazy(() => envSchema.parse(process.env))')
   lines.push('')
 
   lines.push(...generateEnvDtsHint())
