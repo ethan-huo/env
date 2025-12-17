@@ -1,8 +1,12 @@
 import { Command } from 'commander'
-import { symlink, readlink } from 'node:fs/promises'
+import { symlink, readlink, mkdir, copyFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { c } from '../utils/color'
 import { loadEnvFile, serializeEnvRecord } from '../utils/dotenv'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const initCommand = new Command('init')
   .description('Initialize project')
@@ -127,7 +131,23 @@ export default defineConfig({
       console.log(c.dim('- skip env.config.ts (exists)'))
     }
 
-    // 4. Update .gitignore
+    // 5. Create references/env.md (Claude context)
+    const refsDir = `${cwd}/references`
+    const envMdPath = `${refsDir}/env.md`
+    const envMdExists = await Bun.file(envMdPath).exists()
+    if (!envMdExists || options.force) {
+      const templatePath = join(__dirname, '../../references/env.md')
+      const templateExists = await Bun.file(templatePath).exists()
+      if (templateExists) {
+        await mkdir(refsDir, { recursive: true })
+        await copyFile(templatePath, envMdPath)
+        console.log(c.success('create references/env.md'))
+      }
+    } else {
+      console.log(c.dim('- skip references/env.md (exists)'))
+    }
+
+    // 6. Update .gitignore
     const gitignorePath = `${cwd}/.gitignore`
     const gitignoreFile = Bun.file(gitignorePath)
     const gitignoreExists = await gitignoreFile.exists()
