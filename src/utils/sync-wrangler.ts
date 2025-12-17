@@ -128,7 +128,7 @@ async function bulkUploadSecrets(
 
     if (result.exitCode !== 0) {
       const stderr = result.stderr.toString()
-      console.error(`wrangler secret bulk failed: ${stderr}`)
+      throw new Error(`wrangler secret bulk failed: ${stderr}`)
     }
   } finally {
     // 清理临时文件
