@@ -68,15 +68,17 @@ ${privateKeyEnvs.join('\n')}
     // 2.1 Create .env.local (decrypted version for local dev)
     const localEnvPath = `${cwd}/.env.local`
     const localEnvExists = await Bun.file(localEnvPath).exists()
-    if (devEnvExists && (!localEnvExists || options.force)) {
+    if (!localEnvExists || options.force) {
       try {
         const envRecord = await loadEnvFile(devEnvPath)
         await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
         console.log(c.success('create .env.local (decrypted from .env.development)'))
       } catch {
-        console.log(c.warn('.env.local skipped (decrypt failed, missing .env.keys?)'))
+        // 如果解密失败，至少创建一个空的 .env.local
+        await Bun.write(localEnvPath, '# Local environment (decrypted from .env.development)\n# Run `env sync` to update\n')
+        console.log(c.success('create .env.local (placeholder)'))
       }
-    } else if (localEnvExists) {
+    } else {
       console.log(c.dim('- skip .env.local (exists)'))
     }
 
