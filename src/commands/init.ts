@@ -1,12 +1,9 @@
 import { Command } from 'commander'
 import { symlink, readlink, mkdir, copyFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { c } from '../utils/color'
 import { loadEnvFile, serializeEnvRecord } from '../utils/dotenv'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const initCommand = new Command('init')
   .description('Initialize project')
@@ -136,7 +133,7 @@ export default defineConfig({
     const envMdPath = `${refsDir}/env.md`
     const envMdExists = await Bun.file(envMdPath).exists()
     if (!envMdExists || options.force) {
-      const templatePath = join(__dirname, '../../references/env.md')
+      const templatePath = join(import.meta.dir, '../../references/env.md')
       const templateExists = await Bun.file(templatePath).exists()
       if (templateExists) {
         await mkdir(refsDir, { recursive: true })
