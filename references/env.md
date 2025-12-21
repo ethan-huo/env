@@ -22,6 +22,9 @@ env sync -w
 # Import plain .env into encrypted env file
 env import .env -f .env.production
 
+# Install GitHub Actions secrets (dev + prod)
+env install-github-action
+
 # Compare environments
 env diff              # dev vs prod
 env diff convex       # local vs convex
@@ -133,6 +136,13 @@ Decryption keys are stored in `~/.env.keys` (symlinked to project) or via enviro
 DOTENV_PRIVATE_KEY_DEVELOPMENT=...
 DOTENV_PRIVATE_KEY_PRODUCTION=...
 ```
+
+## CI Notes
+
+- CI runs `env init`, so GitHub Secrets must include:
+  - `DOTENV_PRIVATE_KEY_DEVELOPMENT`
+  - `DOTENV_PRIVATE_KEY_PRODUCTION`
+- Run `env install-github-action` locally once to sync dev + prod keys to GitHub Actions.
 
 ## Common Tasks
 
