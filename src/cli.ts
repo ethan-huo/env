@@ -8,6 +8,7 @@ import { diffCommand } from './commands/diff'
 import { syncCommand } from './commands/sync'
 import { initCommand } from './commands/init'
 import { importCommand } from './commands/import'
+import { installGithubActionCommand } from './commands/install-github-action'
 
 const program = new Command()
 
@@ -25,5 +26,6 @@ program.addCommand(diffCommand)
 program.addCommand(syncCommand)
 program.addCommand(initCommand)
 program.addCommand(importCommand)
+program.addCommand(installGithubActionCommand)
 
 program.parse()
