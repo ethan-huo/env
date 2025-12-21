@@ -87,7 +87,11 @@ async function setConvexEnv(key: string, value: string, env: 'dev' | 'prod'): Pr
     ? ['convex', 'env', 'set', key, value, '--prod']
     : ['convex', 'env', 'set', key, value]
 
-  Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString()
+    throw new Error(stderr || `convex env set failed for ${key}`)
+  }
 }
 
 async function removeConvexEnv(key: string, env: 'dev' | 'prod'): Promise<void> {
@@ -95,5 +99,9 @@ async function removeConvexEnv(key: string, env: 'dev' | 'prod'): Promise<void> 
     ? ['convex', 'env', 'remove', key, '--prod']
     : ['convex', 'env', 'remove', key]
 
-  Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString()
+    throw new Error(stderr || `convex env remove failed for ${key}`)
+  }
 }

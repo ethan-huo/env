@@ -1,7 +1,8 @@
 import { Command } from 'commander'
 import { watch } from 'fs'
 import { loadConfig } from '../config'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { mkdir, lstat, readlink, symlink } from 'node:fs/promises'
 import { getEnvFilePath, loadEnvFile, parseEnvVars, serializeEnvRecord } from '../utils/dotenv'
 import { generateTypes, LAZY_TS_CONTENT } from '../utils/typegen'
 import { syncToConvex } from '../utils/sync-convex'
@@ -80,6 +81,15 @@ async function runSync(
         await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
         console.log(c.success(`decrypted: .env.local`))
       }
+
+      if (!dryRun) {
+        await linkLocalEnvFiles(config.sync?.links ?? [], localEnvPath)
+      } else if ((config.sync?.links?.length ?? 0) > 0) {
+        const targets = resolveLinkTargets(config.sync?.links ?? [])
+        for (const target of targets) {
+          console.log(c.dim(`[dry-run] would link: ${target} -> ${localEnvPath}`))
+        }
+      }
     }
 
     // Typegen
@@ -152,5 +162,47 @@ async function runSync(
     }
   } catch (error) {
     console.log(c.error(`${env}: ${(error as Error).message}`))
+  }
+}
+
+async function linkLocalEnvFiles(links: string[], localEnvPath: string): Promise<void> {
+  if (links.length === 0) return
+
+  const targets = resolveLinkTargets(links)
+
+  for (const target of targets) {
+    await ensureSymlink(localEnvPath, target)
+  }
+}
+
+function resolveLinkTargets(links: string[]): string[] {
+  const cwd = process.cwd()
+  return links.map(link => resolve(cwd, link, '.env.local'))
+}
+
+async function ensureSymlink(source: string, target: string): Promise<void> {
+  const dir = dirname(target)
+  await mkdir(dir, { recursive: true })
+
+  try {
+    const stat = await lstat(target)
+    if (stat.isSymbolicLink()) {
+      const existing = await readlink(target)
+      if (existing === source) {
+        console.log(c.dim(`- skip link (exists): ${target}`))
+        return
+      }
+      console.log(c.warn(`- skip link (points elsewhere): ${target} -> ${existing}`))
+      return
+    }
+
+    console.log(c.warn(`- skip link (exists as file/dir): ${target}`))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error
+    }
+
+    await symlink(source, target)
+    console.log(c.success(`linked: ${target} -> ${source}`))
   }
 }

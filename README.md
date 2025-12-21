@@ -38,6 +38,9 @@ env diff                        # dev vs prod
 env diff --envs dev:prod
 env diff convex                 # dotenvx vs convex
 
+# Import (plain -> encrypted)
+env import .env -f .env.production
+
 # Sync (typegen + targets)
 env sync                        # single run
 env sync -w                     # watch mode
@@ -71,6 +74,7 @@ export default defineConfig({
       config: './wrangler.jsonc',
       exclude: ['VITE_*', 'PUBLIC_*'],
     },
+    links: ['./web', './app2'],
   },
 })
 ```
@@ -116,6 +120,7 @@ In CI, set `DOTENV_PRIVATE_KEY_DEVELOPMENT` and `DOTENV_PRIVATE_KEY_PRODUCTION` 
 | `env set <key> <value>` | Set variable (encrypted by default) |
 | `env rm <key>` | Remove variable |
 | `env diff [target]` | Compare envs or dotenvx vs sync targets |
+| `env import <source> -f <target>` | Import plain .env into encrypted env file |
 | `env sync` | Run typegen and sync to configured targets |
 
 ## License

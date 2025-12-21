@@ -119,6 +119,7 @@ export default defineConfig({
   //     config: './wrangler.jsonc',
   //     exclude: ['VITE_*'],
   //   },
+  //   links: ['./web', './app2'],
   // },
 })
 `

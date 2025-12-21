@@ -94,7 +94,8 @@ export async function getWranglerSecrets(
   })
 
   if (result.exitCode !== 0) {
-    return new Set()
+    const stderr = result.stderr.toString()
+    throw new Error(stderr || 'wrangler secret list failed')
   }
 
   try {
@@ -102,7 +103,7 @@ export async function getWranglerSecrets(
     const secrets = JSON.parse(output) as Array<{ name: string }>
     return new Set(secrets.map((s) => s.name))
   } catch {
-    return new Set()
+    throw new Error('wrangler secret list returned invalid JSON')
   }
 }
 
@@ -146,9 +147,13 @@ async function deleteWranglerSecret(
   const baseArgs = ['wrangler', 'secret', 'delete', key, '--force']
   const args = buildWranglerArgs(baseArgs, config, env)
 
-  Bun.spawnSync(['bunx', ...args], {
+  const result = Bun.spawnSync(['bunx', ...args], {
     stdout: 'pipe',
     stderr: 'pipe',
     cwd,
   })
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString()
+    throw new Error(stderr || `wrangler secret delete failed for ${key}`)
+  }
 }

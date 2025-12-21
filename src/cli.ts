@@ -7,6 +7,7 @@ import { lsCommand } from './commands/ls'
 import { diffCommand } from './commands/diff'
 import { syncCommand } from './commands/sync'
 import { initCommand } from './commands/init'
+import { importCommand } from './commands/import'
 
 const program = new Command()
 
@@ -23,5 +24,6 @@ program.addCommand(lsCommand)
 program.addCommand(diffCommand)
 program.addCommand(syncCommand)
 program.addCommand(initCommand)
+program.addCommand(importCommand)
 
 program.parse()

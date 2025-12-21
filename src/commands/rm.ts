@@ -26,8 +26,9 @@ export const rmCommand = new Command('rm')
         const content = await file.text()
         const lines = content.split('\n')
 
-        // 过滤掉目标 key 的行
-        const keyPattern = new RegExp(`^${key}=`)
+      // 过滤掉目标 key 的行
+      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const keyPattern = new RegExp(`^${escapedKey}=`)
         const filtered = lines.filter(line => !keyPattern.test(line))
 
         if (filtered.length === lines.length) {

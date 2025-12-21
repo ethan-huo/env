@@ -31,6 +31,7 @@ const wranglerSyncSchema = v.object({
 const syncSchema = v.object({
   convex: v.optional(convexSyncSchema),
   wrangler: v.optional(wranglerSyncSchema),
+  links: v.optional(v.array(v.string()), []),
 })
 
 const configSchema = v.object({
