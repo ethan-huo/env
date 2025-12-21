@@ -147,11 +147,24 @@ async function deleteWranglerSecret(
   const baseArgs = ['wrangler', 'secret', 'delete', key, '--force']
   const args = buildWranglerArgs(baseArgs, config, env)
 
-  const result = Bun.spawnSync(['bunx', ...args], {
+  let result = Bun.spawnSync(['bunx', ...args], {
     stdout: 'pipe',
     stderr: 'pipe',
     cwd,
   })
+
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString()
+    if (stderr.includes('Unknown argument: force')) {
+      const retryArgs = buildWranglerArgs(['wrangler', 'secret', 'delete', key], config, env)
+      result = Bun.spawnSync(['bunx', ...retryArgs], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+        cwd,
+      })
+    }
+  }
+
   if (result.exitCode !== 0) {
     const stderr = result.stderr.toString()
     throw new Error(stderr || `wrangler secret delete failed for ${key}`)
