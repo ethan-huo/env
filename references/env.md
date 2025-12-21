@@ -10,7 +10,7 @@ env ls
 
 # Get/Set variables
 env get <KEY>
-env set <KEY>=<VALUE>
+env set <KEY> <VALUE>
 env rm <KEY>
 
 # Sync to targets (Convex, Cloudflare Workers, etc.)
@@ -19,9 +19,13 @@ env sync
 # Watch mode - auto sync on file changes
 env sync -w
 
+# Import plain .env into encrypted env file
+env import .env -f .env.production
+
 # Compare environments
 env diff              # dev vs prod
-env diff --target     # local vs sync targets
+env diff convex       # local vs convex
+env diff wrangler     # local vs wrangler
 ```
 
 ## File Structure
@@ -53,6 +57,12 @@ env set DATABASE_URL="new-value"
 env sync
 ```
 
+### Import plain .env
+
+```bash
+env import .env -f .env.production
+```
+
 ### Switching environments
 
 The tool manages two environments:
@@ -61,7 +71,8 @@ The tool manages two environments:
 
 ```bash
 env ls -e prod           # List prod vars
-env set -e prod KEY=val  # Set in prod
+env set -e prod KEY val  # Set in prod
+env rm -e prod KEY       # Remove from prod
 env sync -e prod         # Sync prod
 ```
 
@@ -73,9 +84,17 @@ Running `env sync` generates TypeScript types at the path configured in `env.con
 // Auto-generated src/env.ts
 import * as v from 'valibot'
 
-export const envSchema = v.object({
-  DATABASE_URL: v.string(),
+export const publicEnvSchema = v.object({
   VITE_API_URL: v.string(),
+})
+
+export const privateEnvSchema = v.object({
+  DATABASE_URL: v.string(),
+})
+
+export const envSchema = v.object({
+  ...publicEnvSchema.entries,
+  ...privateEnvSchema.entries,
 })
 
 export type Env = v.InferOutput<typeof envSchema>
@@ -95,9 +114,16 @@ export default defineConfig({
       config: './wrangler.jsonc',
       exclude: ['VITE_*'],    // Skip client-only vars
     },
+    links: ['./web', './app2'], // Create .env.local symlinks in subprojects
   },
 })
 ```
+
+## .env.local
+
+`env sync` (dev) writes a decrypted `.env.local` in the repo root. If `sync.links`
+is configured, it also creates symlinks like `./web/.env.local` pointing to the
+root `.env.local` (existing files are skipped).
 
 ## Private Keys
 
@@ -113,7 +139,7 @@ DOTENV_PRIVATE_KEY_PRODUCTION=...
 | Task | Command |
 |------|---------|
 | Initialize project | `env init` |
-| Add secret | `env set SECRET=value` |
+| Add secret | `env set SECRET value` |
 | View all vars | `env ls` |
-| Check diff before deploy | `env diff --target` |
+| Check diff before deploy | `env diff convex` |
 | Deploy to prod | `env sync -e prod` |
