@@ -41,7 +41,7 @@ env diff convex                 # dotenvx vs convex
 # Import (plain -> encrypted)
 env import .env -f .env.production
 
-# Install GitHub Actions secret for CI
+# Install GitHub Actions secrets for CI
 env install-github-action
 
 # Sync (typegen + targets)
@@ -124,7 +124,7 @@ In CI, set `DOTENV_PRIVATE_KEY_DEVELOPMENT` and `DOTENV_PRIVATE_KEY_PRODUCTION` 
 | `env rm <key>` | Remove variable |
 | `env diff [target]` | Compare envs or dotenvx vs sync targets |
 | `env import <source> -f <target>` | Import plain .env into encrypted env file |
-| `env install-github-action` | Set DOTENV_PRIVATE_KEY_PRODUCTION in GitHub Actions secrets |
+| `env install-github-action` | Set DOTENV_PRIVATE_KEY_DEVELOPMENT/PRODUCTION in GitHub Actions secrets |
 | `env sync` | Run typegen and sync to configured targets |
 
 ## License
