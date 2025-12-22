@@ -122,6 +122,44 @@ export default defineConfig({
 })
 ```
 
+## Config Schema (defineConfig)
+
+```typescript
+export type SchemaType = 'valibot' | 'zod' | 'none'
+export type EnvType = 'dev' | 'prod'
+
+export type Config = {
+  envFiles?: {
+    dev?: string
+    prod?: string
+  }
+  typegen?: {
+    output: string
+    schema?: SchemaType
+    publicPrefix?: string[]
+  }
+  sync?: {
+    convex?: {
+      exclude?: string[]
+    }
+    wrangler?: {
+      config?: string
+      exclude?: string[]
+      envMapping?: {
+        dev?: string
+        prod?: string
+      }
+    }
+    links?: string[]
+  }
+}
+```
+
+Notes:
+- If `wrangler.jsonc` has a single environment, do not set `envMapping`.
+- With a single-environment Worker, only sync `prod` (`env sync -e prod`).
+- Use `envMapping` only when Wrangler has multiple environments.
+
 ## .env.local
 
 `env sync` (dev) writes a decrypted `.env.local` in the repo root. If `sync.links`
