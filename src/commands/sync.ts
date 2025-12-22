@@ -24,6 +24,31 @@ export const syncCommand = new Command('sync')
 
     const env = options.env as 'dev' | 'prod' | 'all'
     const envs: Array<'dev' | 'prod'> = env === 'all' ? ['dev', 'prod'] : [env]
+    const wranglerConfig = config.sync?.wrangler
+    const envMapping = wranglerConfig?.envMapping
+
+    if (wranglerConfig) {
+      // Safety: prevent syncing dev values to Wrangler default (prod) when envMapping is missing.
+      if (!envMapping && env !== 'prod') {
+        console.error('Error: wrangler envMapping is missing. Use `-e prod` or configure envMapping.')
+        process.exit(1)
+      }
+
+      if (env === 'dev' && !envMapping?.dev) {
+        console.error('Error: wrangler envMapping.dev is required for `-e dev`.')
+        process.exit(1)
+      }
+
+      if (env === 'prod' && envMapping && !envMapping.prod) {
+        console.error('Error: wrangler envMapping.prod is required for `-e prod`.')
+        process.exit(1)
+      }
+
+      if (env === 'all' && (!envMapping?.dev || !envMapping?.prod)) {
+        console.error('Error: wrangler envMapping.dev and envMapping.prod are required for `-e all`.')
+        process.exit(1)
+      }
+    }
 
     if (!options.watch) {
       // 单次执行（默认）
