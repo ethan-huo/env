@@ -6,29 +6,29 @@ This project uses `env-tool` for encrypted environment variable management.
 
 ```bash
 # List all variables
-env ls
+bun env ls
 
 # Get/Set variables
-env get <KEY>
-env set <KEY> <VALUE>
-env rm <KEY>
+bun env get <KEY>
+bun env set <KEY> <VALUE>
+bun env rm <KEY>
 
 # Sync to targets (Convex, Cloudflare Workers, etc.)
-env sync
+bun env sync
 
 # Watch mode - auto sync on file changes
-env sync -w
+bun env sync -w
 
 # Import plain .env into encrypted env file
-env import .env -f .env.production
+bun env import .env -f .env.production
 
 # Install GitHub Actions secrets (dev + prod)
-env install-github-action
+bun env install-github-action
 
 # Compare environments
-env diff              # dev vs prod
-env diff convex       # local vs convex
-env diff wrangler     # local vs wrangler
+bun env diff              # dev vs prod
+bun env diff convex       # local vs convex
+bun env diff wrangler     # local vs wrangler
 ```
 
 ## File Structure
@@ -47,23 +47,23 @@ env diff wrangler     # local vs wrangler
 
 ```bash
 # 1. Set the variable (auto-encrypts)
-env set DATABASE_URL="postgres://..."
+bun env set DATABASE_URL="postgres://..."
 
 # 2. Sync to generate types and update targets
-env sync
+bun env sync
 ```
 
 ### Updating existing variable
 
 ```bash
-env set DATABASE_URL="new-value"
-env sync
+bun env set DATABASE_URL="new-value"
+bun env sync
 ```
 
 ### Import plain .env
 
 ```bash
-env import .env -f .env.production
+bun env import .env -f .env.production
 ```
 
 ### Switching environments
@@ -73,15 +73,15 @@ The tool manages two environments:
 - `production` - use `-e prod`
 
 ```bash
-env ls -e prod           # List prod vars
-env set -e prod KEY val  # Set in prod
-env rm -e prod KEY       # Remove from prod
-env sync -e prod         # Sync prod
+bun env ls -e prod           # List prod vars
+bun env set -e prod KEY val  # Set in prod
+bun env rm -e prod KEY       # Remove from prod
+bun env sync -e prod         # Sync prod
 ```
 
 ## Type Generation
 
-Running `env sync` generates TypeScript types at the path configured in `env.config.ts`:
+Running `bun env sync` generates TypeScript types at the path configured in `env.config.ts`:
 
 ```typescript
 // Auto-generated src/env.ts
@@ -157,12 +157,12 @@ export type Config = {
 
 Notes:
 - If `wrangler.jsonc` has a single environment, do not set `envMapping`.
-- With a single-environment Worker, only sync `prod` (`env sync -e prod`).
+- With a single-environment Worker, only sync `prod` (`bun env sync -e prod`).
 - Use `envMapping` only when Wrangler has multiple environments.
 
 ## .env.local
 
-`env sync` (dev) writes a decrypted `.env.local` in the repo root. If `sync.links`
+`bun env sync` (dev) writes a decrypted `.env.local` in the repo root. If `sync.links`
 is configured, it also creates symlinks like `./web/.env.local` pointing to the
 root `.env.local` (existing files are skipped).
 
@@ -177,17 +177,17 @@ DOTENV_PRIVATE_KEY_PRODUCTION=...
 
 ## CI Notes
 
-- CI runs `env init`, so GitHub Secrets must include:
+- CI runs `bun env init`, so GitHub Secrets must include:
   - `DOTENV_PRIVATE_KEY_DEVELOPMENT`
   - `DOTENV_PRIVATE_KEY_PRODUCTION`
-- Run `env install-github-action` locally once to sync dev + prod keys to GitHub Actions.
+- Run `bun env install-github-action` locally once to sync dev + prod keys to GitHub Actions.
 
 ## Common Tasks
 
 | Task | Command |
 |------|---------|
-| Initialize project | `env init` |
-| Add secret | `env set SECRET value` |
-| View all vars | `env ls` |
-| Check diff before deploy | `env diff convex` |
-| Deploy to prod | `env sync -e prod` |
+| Initialize project | `bun env init` |
+| Add secret | `bun env set SECRET value` |
+| View all vars | `bun env ls` |
+| Check diff before deploy | `bun env diff convex` |
+| Deploy to prod | `bun env sync -e prod` |
