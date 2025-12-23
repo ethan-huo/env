@@ -157,7 +157,8 @@ export type Config = {
 
 Notes:
 - If `wrangler.jsonc` has a single environment, do not set `envMapping`.
-- With a single-environment Worker, only sync `prod` (`bun env sync -e prod`).
+- With a single-environment Worker, `bun env sync -e dev` will skip Wrangler sync with a warning.
+- Use `bun env sync -e prod` to sync Wrangler in single-environment setups.
 - Use `envMapping` only when Wrangler has multiple environments.
 
 ## .env.local
