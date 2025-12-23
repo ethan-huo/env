@@ -27,24 +27,18 @@ export const syncCommand = new Command('sync')
     const wranglerConfig = config.sync?.wrangler
     const envMapping = wranglerConfig?.envMapping
 
-    if (wranglerConfig) {
-      // Safety: prevent syncing dev values to Wrangler default (prod) when envMapping is missing.
-      if (!envMapping && env !== 'prod') {
-        console.error('Error: wrangler envMapping is missing. Use `-e prod` or configure envMapping.')
-        process.exit(1)
-      }
-
-      if (env === 'dev' && !envMapping?.dev) {
+    if (wranglerConfig && envMapping) {
+      if (env === 'dev' && !envMapping.dev) {
         console.error('Error: wrangler envMapping.dev is required for `-e dev`.')
         process.exit(1)
       }
 
-      if (env === 'prod' && envMapping && !envMapping.prod) {
+      if (env === 'prod' && !envMapping.prod) {
         console.error('Error: wrangler envMapping.prod is required for `-e prod`.')
         process.exit(1)
       }
 
-      if (env === 'all' && (!envMapping?.dev || !envMapping?.prod)) {
+      if (env === 'all' && (!envMapping.dev || !envMapping.prod)) {
         console.error('Error: wrangler envMapping.dev and envMapping.prod are required for `-e all`.')
         process.exit(1)
       }
@@ -166,22 +160,32 @@ async function runSync(
 
     // Sync to Wrangler
     if (config.sync?.wrangler) {
-      const result = await syncToWrangler(envRecord, env, config.sync.wrangler, dryRun)
+      const wranglerConfig = config.sync.wrangler
 
-      if (dryRun) {
-        console.log(c.dim(`[dry-run] Wrangler:`))
-        if (result.added.length) console.log(c.green(`  + ${result.added.join(', ')}`))
-        if (result.updated.length) console.log(c.yellow(`  ~ ${result.updated.join(', ')}`))
-        if (result.removed.length) console.log(c.red(`  - ${result.removed.join(', ')}`))
-        if (!result.added.length && !result.updated.length && !result.removed.length) {
-          console.log(c.dim('  no changes'))
-        }
+      if (!wranglerConfig.envMapping && env === 'dev') {
+        console.log(
+          c.warn(
+            'Wrangler sync skipped for dev (single-environment worker). Use `-e prod` to sync.'
+          )
+        )
       } else {
-        const total = result.added.length + result.updated.length + result.removed.length
-        if (total > 0) {
-          console.log(c.success(`Wrangler: ${c.green(`+${result.added.length}`)} ${c.yellow(`~${result.updated.length}`)} ${c.red(`-${result.removed.length}`)}`))
+        const result = await syncToWrangler(envRecord, env, wranglerConfig, dryRun)
+
+        if (dryRun) {
+          console.log(c.dim(`[dry-run] Wrangler:`))
+          if (result.added.length) console.log(c.green(`  + ${result.added.join(', ')}`))
+          if (result.updated.length) console.log(c.yellow(`  ~ ${result.updated.join(', ')}`))
+          if (result.removed.length) console.log(c.red(`  - ${result.removed.join(', ')}`))
+          if (!result.added.length && !result.updated.length && !result.removed.length) {
+            console.log(c.dim('  no changes'))
+          }
         } else {
-          console.log(c.success(`Wrangler: no changes`))
+          const total = result.added.length + result.updated.length + result.removed.length
+          if (total > 0) {
+            console.log(c.success(`Wrangler: ${c.green(`+${result.added.length}`)} ${c.yellow(`~${result.updated.length}`)} ${c.red(`-${result.removed.length}`)}`))
+          } else {
+            console.log(c.success(`Wrangler: no changes`))
+          }
         }
       }
     }
