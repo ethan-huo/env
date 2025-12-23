@@ -20,6 +20,7 @@
   "dependencies": {
     "@dotenvx/dotenvx": "^1.51.1",
     "commander": "^14.0.2",
+    "confbox": "^0.2.2",
     "valibot": "^1.2.0"
   }
 }
