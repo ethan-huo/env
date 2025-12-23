@@ -58,7 +58,7 @@ export const syncCommand = new Command('sync')
     if (!options.watch) {
       // 单次执行（默认）
       for (const e of envs) {
-        await runSync(config, e, options.dryRun)
+        await runSync(config, e, options.dryRun, env === 'all')
       }
       return
     }
@@ -71,13 +71,13 @@ export const syncCommand = new Command('sync')
       console.log(`  watching: ${c.cyan(envPath)}`)
 
       // 首次执行
-      await runSync(config, e, options.dryRun)
+      await runSync(config, e, options.dryRun, env === 'all')
 
       // 监听文件变化
       watch(envPath, { persistent: true }, async (eventType) => {
         if (eventType === 'change') {
           console.log(`\n${c.success(`Change detected: ${envPath}`)}`)
-          await runSync(config, e, options.dryRun)
+          await runSync(config, e, options.dryRun, env === 'all')
           console.log(c.info('Waiting for changes...'))
         }
       })
@@ -92,7 +92,8 @@ export const syncCommand = new Command('sync')
 async function runSync(
   config: Awaited<ReturnType<typeof loadConfig>>,
   env: 'dev' | 'prod',
-  dryRun: boolean
+  dryRun: boolean,
+  allMode = false
 ) {
   const envPath = getEnvFilePath(config, env)
 
@@ -177,7 +178,9 @@ async function runSync(
       if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
         console.log(
           c.warn(
-            'Wrangler sync skipped for dev (single-environment worker). Use `-e prod` to sync.'
+            allMode
+              ? 'Wrangler is single-environment: dev sync skipped (all mode). Only prod is synced.'
+              : 'Wrangler sync skipped for dev (single-environment worker). Use `-e prod` to sync.'
           )
         )
       } else {
