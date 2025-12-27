@@ -7,15 +7,16 @@ import type { AppHandlers } from '../schema'
 import { getEnvFilePath, loadEnvFile, shouldExclude } from '../utils/dotenv'
 import { getWranglerSecrets } from '../utils/sync-wrangler'
 
-export const runDiff: AppHandlers['diff'] = async ({ input, context }) => {
-	const { config } = context
-	const { env } = input
+export const runDiff: AppHandlers['diff'] = async ({ context }) => {
+	const { config, env: globalEnv } = context
 
 	if (!config.sync?.convex && !config.sync?.wrangler) {
 		console.error('Error: no sync targets configured in env.config.ts')
 		process.exit(1)
 	}
 
+	// diff doesn't support 'all', default to 'dev'
+	const env = globalEnv === 'all' ? 'dev' : globalEnv
 	await diffAll(config, env)
 }
 

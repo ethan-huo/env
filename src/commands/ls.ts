@@ -8,9 +8,11 @@ import {
 } from '../utils/dotenv'
 
 export const runLs: AppHandlers['ls'] = async ({ input, context }) => {
-	const { config } = context
-	const { env, filter, showValues, format } = input
+	const { config, env: globalEnv } = context
+	const { filter, showValues, format } = input
 
+	// ls doesn't support 'all', default to 'dev'
+	const env = globalEnv === 'all' ? 'dev' : globalEnv
 	const envPath = getEnvFilePath(config, env)
 
 	try {

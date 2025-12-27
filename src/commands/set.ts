@@ -5,20 +5,17 @@ import type { AppHandlers } from '../schema'
 import { getEnvFilePath } from '../utils/dotenv'
 
 export const runSet: AppHandlers['set'] = async ({ input, context }) => {
-	const { config } = context
-	const { key, value, env, plain } = input
+	const { config, env } = context
+	const { key, value, plain } = input
 
-	const envs: Array<'dev' | 'prod'> =
-		env === 'all' ? ['dev', 'prod'] : [env === 'all' ? 'dev' : env]
+	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
 
 	const keysExists = await Bun.file('.env.keys').exists()
 	if (!keysExists && !plain) {
 		console.log(fmt.warn('.env.keys not found - writing plain text value'))
 	}
 
-	for (const e of env === 'all'
-		? (['dev', 'prod'] as const)
-		: ([env === 'all' ? 'dev' : env] as const)) {
+	for (const e of envs) {
 		const envPath = getEnvFilePath(config, e)
 
 		try {

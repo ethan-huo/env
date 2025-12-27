@@ -3,14 +3,13 @@ import type { AppHandlers } from '../schema'
 import { getEnvFilePath, loadEnvFile } from '../utils/dotenv'
 
 export const runGet: AppHandlers['get'] = async ({ input, context }) => {
-	const { config } = context
-	const { key, env } = input
+	const { config, env } = context
+	const { key } = input
 
 	const results: Array<{ env: string; value: string | null }> = []
+	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
 
-	for (const e of env === 'all'
-		? (['dev', 'prod'] as const)
-		: ([env === 'all' ? 'dev' : env] as const)) {
+	for (const e of envs) {
 		const envPath = getEnvFilePath(config, e)
 		try {
 			const envRecord = await loadEnvFile(envPath)

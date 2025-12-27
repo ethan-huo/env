@@ -5,12 +5,12 @@ import type { AppHandlers } from '../schema'
 import { getEnvFilePath } from '../utils/dotenv'
 
 export const runRm: AppHandlers['rm'] = async ({ input, context }) => {
-	const { config } = context
-	const { key, env } = input
+	const { config, env } = context
+	const { key } = input
 
-	for (const e of env === 'all'
-		? (['dev', 'prod'] as const)
-		: ([env === 'all' ? 'dev' : env] as const)) {
+	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
+
+	for (const e of envs) {
 		const envPath = getEnvFilePath(config, e)
 
 		try {

@@ -11,15 +11,17 @@ import { runRm } from './commands/rm'
 import { runSet } from './commands/set'
 import { runSync } from './commands/sync'
 import { loadConfig } from './config'
-import { schema } from './schema'
+import { globalsSchema, schema } from './schema'
 
 cli(schema, {
 	name: 'env',
 	version: '0.1.2',
 	description: 'Environment variable management tool',
+	globals: globalsSchema,
 }).run({
-	context: async () => ({
+	context: async (globals) => ({
 		config: await loadConfig(),
+		env: globals.env,
 	}),
 	handlers: {
 		get: runGet,

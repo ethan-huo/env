@@ -18,16 +18,15 @@ import { syncToWrangler } from '../utils/sync-wrangler'
 import { generateTypes, LAZY_TS_CONTENT } from '../utils/typegen'
 
 export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
-	const { config } = context
-	const { env, watch: watchMode, dryRun } = input
+	const { config, env } = context
+	const { watch: watchMode, dryRun } = input
 
 	if (!config.sync && !config.typegen) {
 		console.error('Error: please configure sync or typegen in env.config.ts')
 		process.exit(1)
 	}
 
-	const envs: Array<'dev' | 'prod'> =
-		env === 'all' ? ['dev', 'prod'] : [env === 'all' ? 'dev' : env]
+	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
 	const wranglerConfig = config.sync?.wrangler
 	const envMapping = wranglerConfig?.envMapping
 
@@ -67,9 +66,7 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	}
 
 	if (!watchMode) {
-		for (const e of env === 'all'
-			? (['dev', 'prod'] as const)
-			: ([env === 'all' ? 'dev' : env] as const)) {
+		for (const e of envs) {
 			await runSyncOnce(config, e, dryRun, env === 'all')
 		}
 		return
@@ -78,9 +75,7 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	// Watch mode
 	console.log(fmt.info('Starting watch mode...'))
 
-	for (const e of env === 'all'
-		? (['dev', 'prod'] as const)
-		: ([env === 'all' ? 'dev' : env] as const)) {
+	for (const e of envs) {
 		const envPath = getEnvFilePath(config, e)
 		console.log(`  watching: ${fmt.cyan(envPath)}`)
 

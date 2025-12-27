@@ -6,11 +6,18 @@ import type { loadConfig } from './config'
 
 const s = toStandardJsonSchema
 
+export type Env = 'dev' | 'prod' | 'all'
+
 export type AppContext = {
 	config: Awaited<ReturnType<typeof loadConfig>>
+	env: Env
 }
 
-const envOption = v.optional(v.picklist(['dev', 'prod', 'all']), 'dev')
+export const globalsSchema = s(
+	v.object({
+		env: v.optional(v.picklist(['dev', 'prod', 'all']), 'dev'),
+	}),
+)
 
 export const schema = {
 	get: c
@@ -20,7 +27,6 @@ export const schema = {
 			s(
 				v.object({
 					key: v.string(),
-					env: envOption,
 				}),
 			),
 		),
@@ -33,7 +39,6 @@ export const schema = {
 				v.object({
 					key: v.string(),
 					value: v.string(),
-					env: envOption,
 					plain: v.optional(v.boolean(), false),
 				}),
 			),
@@ -46,7 +51,6 @@ export const schema = {
 			s(
 				v.object({
 					key: v.string(),
-					env: envOption,
 				}),
 			),
 		),
@@ -56,7 +60,6 @@ export const schema = {
 		.input(
 			s(
 				v.object({
-					env: v.optional(v.picklist(['dev', 'prod']), 'dev'),
 					filter: v.optional(v.string()),
 					showValues: v.optional(v.boolean(), false),
 					format: v.optional(v.picklist(['table', 'json', 'export']), 'table'),
@@ -66,18 +69,11 @@ export const schema = {
 
 	diff: c
 		.meta({ description: 'Compare environment variables with sync targets' })
-		.input(
-			s(
-				v.object({
-					env: v.optional(v.picklist(['dev', 'prod']), 'dev'),
-				}),
-			),
-		),
+		.input(s(v.object({}))),
 
 	sync: c.meta({ description: 'Run typegen + sync targets' }).input(
 		s(
 			v.object({
-				env: v.optional(v.picklist(['dev', 'prod', 'all']), 'dev'),
 				watch: v.optional(v.boolean(), false),
 				dryRun: v.optional(v.boolean(), false),
 			}),

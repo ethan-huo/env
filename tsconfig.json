@@ -1,4 +1,6 @@
 {
+	"include": ["src"],
+	"exclude": ["node_modules"],
 	"compilerOptions": {
 		// Environment setup & latest features
 		"lib": ["ESNext"],
@@ -18,7 +20,7 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"noFallthroughCasesInSwitch": true,
-		"noUncheckedIndexedAccess": true,
+		// "noUncheckedIndexedAccess": true, // disabled: argc uses .ts exports without this flag
 		"noImplicitOverride": true,
 
 		// Some stricter flags (disabled by default)
