@@ -2,7 +2,7 @@ import { fmt, printTable, type TableColumn, type TableRow } from 'argc/terminal'
 import { dirname, resolve } from 'node:path'
 
 import type { Config, EnvType } from '../config'
-import type { AppHandlers } from '../schema'
+import type { AppHandlers } from '../cli'
 
 import { getEnvFilePath, loadEnvFile, shouldExclude } from '../utils/dotenv'
 import { getWranglerSecrets } from '../utils/sync-wrangler'

@@ -3,7 +3,7 @@ import { symlink, readlink, mkdir, copyFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import type { AppHandlers } from '../schema'
+import type { AppHandlers } from '../cli'
 
 import { loadEnvFile, serializeEnvRecord } from '../utils/dotenv'
 

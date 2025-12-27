@@ -1,4 +1,4 @@
-import type { AppHandlers } from '../schema'
+import type { AppHandlers } from '../cli'
 
 import { getEnvFilePath, loadEnvFile } from '../utils/dotenv'
 

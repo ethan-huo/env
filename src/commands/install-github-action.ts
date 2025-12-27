@@ -1,6 +1,6 @@
 import { fmt } from 'argc/terminal'
 
-import type { AppHandlers } from '../schema'
+import type { AppHandlers } from '../cli'
 
 function extractKey(content: string, keyName: string): string | undefined {
 	const match = content.match(

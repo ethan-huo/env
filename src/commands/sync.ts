@@ -5,7 +5,7 @@ import { mkdir, lstat, readFile, readlink, symlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 import type { Config } from '../config'
-import type { AppHandlers } from '../schema'
+import type { AppHandlers } from '../cli'
 
 import {
 	getEnvFilePath,

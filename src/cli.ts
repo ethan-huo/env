@@ -13,16 +13,21 @@ import { runSync } from './commands/sync'
 import { loadConfig } from './config'
 import { globalsSchema, schema } from './schema'
 
-cli(schema, {
+export const app = cli(schema, {
 	name: 'env',
 	version: '0.1.2',
 	description: 'Environment variable management tool',
 	globals: globalsSchema,
-}).run({
 	context: async (globals) => ({
 		config: await loadConfig(),
 		env: globals.env,
 	}),
+})
+
+// Handler types inferred from app (includes context)
+export type AppHandlers = typeof app.Handlers
+
+app.run({
 	handlers: {
 		get: runGet,
 		set: runSet,

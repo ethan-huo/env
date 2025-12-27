@@ -1,17 +1,10 @@
 import { toStandardJsonSchema } from '@valibot/to-json-schema'
-import { c, type InferHandlers } from 'argc'
+import { c } from 'argc'
 import * as v from 'valibot'
-
-import type { loadConfig } from './config'
 
 const s = toStandardJsonSchema
 
 export type Env = 'dev' | 'prod' | 'all'
-
-export type AppContext = {
-	config: Awaited<ReturnType<typeof loadConfig>>
-	env: Env
-}
 
 export const globalsSchema = s(
 	v.object({
@@ -114,4 +107,3 @@ export const schema = {
 		),
 }
 
-export type AppHandlers = InferHandlers<typeof schema, AppContext>

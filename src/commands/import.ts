@@ -2,7 +2,7 @@ import { fmt } from 'argc/terminal'
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
-import type { AppHandlers } from '../schema'
+import type { AppHandlers } from '../cli'
 
 import { loadEnvFile, shouldExclude } from '../utils/dotenv'
 
