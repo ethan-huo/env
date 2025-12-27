@@ -1,4 +1,4 @@
-# env-tool
+# env
 
 CLI for encrypted environment variable management with type generation and multi-target sync.
 

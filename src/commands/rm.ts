@@ -1,46 +1,42 @@
-import { Command } from 'commander'
-import { loadConfig } from '../config'
+import { fmt } from 'argc/terminal'
+
+import type { AppHandlers } from '../schema'
+
 import { getEnvFilePath } from '../utils/dotenv'
-import { c } from '../utils/color'
 
-export const rmCommand = new Command('rm')
-  .description('Remove environment variable')
-  .argument('<key>', 'variable name')
-  .option('-e, --env <env>', 'environment: dev | prod | all', 'dev')
-  .action(async (key: string, options) => {
-    const config = await loadConfig()
-    const env = options.env as 'dev' | 'prod' | 'all'
+export const runRm: AppHandlers['rm'] = async ({ input, context }) => {
+	const { config } = context
+	const { key, env } = input
 
-    const envs: Array<'dev' | 'prod'> = env === 'all' ? ['dev', 'prod'] : [env]
+	for (const e of env === 'all'
+		? (['dev', 'prod'] as const)
+		: ([env === 'all' ? 'dev' : env] as const)) {
+		const envPath = getEnvFilePath(config, e)
 
-    for (const e of envs) {
-      const envPath = getEnvFilePath(config, e)
+		try {
+			const file = Bun.file(envPath)
+			if (!(await file.exists())) {
+				console.log(fmt.error(`${e}: file not found ${envPath}`))
+				continue
+			}
 
-      try {
-        const file = Bun.file(envPath)
-        if (!(await file.exists())) {
-          console.log(c.error(`${e}: file not found ${envPath}`))
-          continue
-        }
+			const content = await file.text()
+			const lines = content.split('\n')
 
-        const content = await file.text()
-        const lines = content.split('\n')
+			const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			const keyPattern = new RegExp(`^${escapedKey}=`)
+			const filtered = lines.filter((line) => !keyPattern.test(line))
 
-      // 过滤掉目标 key 的行
-      const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const keyPattern = new RegExp(`^${escapedKey}=`)
-        const filtered = lines.filter(line => !keyPattern.test(line))
+			if (filtered.length === lines.length) {
+				console.log(fmt.error(`${e}: variable ${key} not found`))
+				continue
+			}
 
-        if (filtered.length === lines.length) {
-          console.log(c.error(`${e}: variable ${key} not found`))
-          continue
-        }
-
-        await Bun.write(envPath, filtered.join('\n'))
-        console.log(c.success(`${e}: deleted ${key}`))
-      } catch (error) {
-        console.log(c.error(`${e}: ${(error as Error).message}`))
-        process.exit(1)
-      }
-    }
-  })
+			await Bun.write(envPath, filtered.join('\n'))
+			console.log(fmt.success(`${e}: deleted ${key}`))
+		} catch (error) {
+			console.log(fmt.error(`${e}: ${(error as Error).message}`))
+			process.exit(1)
+		}
+	}
+}

@@ -1,26 +1,28 @@
 {
-  "name": "env-tool",
-  "version": "0.1.2",
-  "type": "module",
-  "exports": {
-    "./config": "./src/config.ts"
-  },
-  "bin": {
-    "env": "./src/cli.ts"
-  },
-  "scripts": {
-    "dev": "bun run src/cli.ts"
-  },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@dotenvx/dotenvx": "^1.51.1",
-    "commander": "^14.0.2",
-    "confbox": "^0.2.2",
-    "valibot": "^1.2.0"
-  }
+	"name": "env",
+	"version": "0.1.2",
+	"bin": {
+		"env": "./src/cli.ts"
+	},
+	"type": "module",
+	"exports": {
+		"./config": "./src/config.ts"
+	},
+	"scripts": {
+		"dev": "bun run src/cli.ts",
+		"fmt": "bunx oxfmt ."
+	},
+	"dependencies": {
+		"@dotenvx/dotenvx": "^1.51.1",
+		"@valibot/to-json-schema": "^1.5.0",
+		"argc": "../argc",
+		"confbox": "^0.2.2",
+		"valibot": "^1.2.0"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
 }

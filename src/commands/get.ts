@@ -1,43 +1,39 @@
-import { Command } from 'commander'
-import { loadConfig } from '../config'
+import type { AppHandlers } from '../schema'
+
 import { getEnvFilePath, loadEnvFile } from '../utils/dotenv'
 
-export const getCommand = new Command('get')
-  .description('Get environment variable value')
-  .argument('<key>', 'variable name')
-  .option('-e, --env <env>', 'environment: dev | prod | all', 'dev')
-  .action(async (key: string, options) => {
-    const config = await loadConfig()
-    const env = options.env as 'dev' | 'prod' | 'all'
+export const runGet: AppHandlers['get'] = async ({ input, context }) => {
+	const { config } = context
+	const { key, env } = input
 
-    const envs: Array<'dev' | 'prod'> = env === 'all' ? ['dev', 'prod'] : [env]
+	const results: Array<{ env: string; value: string | null }> = []
 
-    const results: Array<{ env: string; value: string | null }> = []
+	for (const e of env === 'all'
+		? (['dev', 'prod'] as const)
+		: ([env === 'all' ? 'dev' : env] as const)) {
+		const envPath = getEnvFilePath(config, e)
+		try {
+			const envRecord = await loadEnvFile(envPath)
+			const value = envRecord[key] ?? null
+			results.push({ env: e, value })
+		} catch {
+			results.push({ env: e, value: null })
+		}
+	}
 
-    for (const e of envs) {
-      const envPath = getEnvFilePath(config, e)
-      try {
-        const envRecord = await loadEnvFile(envPath)
-        const value = envRecord[key] ?? null
-        results.push({ env: e, value })
-      } catch {
-        results.push({ env: e, value: null })
-      }
-    }
-
-    if (env === 'all') {
-      console.log('')
-      const data = results.map(r => ({
-        env: r.env,
-        value: r.value ?? '(not set)',
-      }))
-      console.table(data)
-    } else {
-      const value = results[0]?.value
-      if (value === null || value === undefined) {
-        console.error(`Variable ${key} is not set`)
-        process.exit(1)
-      }
-      console.log(value)
-    }
-  })
+	if (env === 'all') {
+		console.log('')
+		const data = results.map((r) => ({
+			env: r.env,
+			value: r.value ?? '(not set)',
+		}))
+		console.table(data)
+	} else {
+		const value = results[0]?.value
+		if (value === null || value === undefined) {
+			console.error(`Variable ${key} is not set`)
+			process.exit(1)
+		}
+		console.log(value)
+	}
+}

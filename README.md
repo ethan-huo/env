@@ -1,4 +1,4 @@
-# env-tool
+# env
 
 CLI for managing environment variables with dotenvx encryption, type generation, and multi-target sync.
 
@@ -12,7 +12,7 @@ CLI for managing environment variables with dotenvx encryption, type generation,
 ## Install
 
 ```bash
-bun add github:ethan-huo/env-tool
+bun add github:ethan-huo/env
 ```
 
 ## Usage
@@ -55,7 +55,7 @@ env sync --dry-run
 Create `env.config.ts`:
 
 ```typescript
-import { defineConfig } from 'env-tool/config'
+import { defineConfig } from 'env/config'
 
 export default defineConfig({
   envFiles: {
@@ -115,17 +115,17 @@ In CI, set `DOTENV_PRIVATE_KEY_DEVELOPMENT` and `DOTENV_PRIVATE_KEY_PRODUCTION` 
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `env init` | Initialize project with config and env files |
-| `env ls` | List environment variables |
-| `env get <key>` | Get variable value |
-| `env set <key> <value>` | Set variable (encrypted by default) |
-| `env rm <key>` | Remove variable |
-| `env diff [target]` | Compare envs or dotenvx vs sync targets |
-| `env import <source> -f <target>` | Import plain .env into encrypted env file |
-| `env install-github-action` | Set DOTENV_PRIVATE_KEY_DEVELOPMENT/PRODUCTION in GitHub Actions secrets |
-| `env sync` | Run typegen and sync to configured targets |
+| Command                           | Description                                                             |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| `env init`                        | Initialize project with config and env files                            |
+| `env ls`                          | List environment variables                                              |
+| `env get <key>`                   | Get variable value                                                      |
+| `env set <key> <value>`           | Set variable (encrypted by default)                                     |
+| `env rm <key>`                    | Remove variable                                                         |
+| `env diff [target]`               | Compare envs or dotenvx vs sync targets                                 |
+| `env import <source> -f <target>` | Import plain .env into encrypted env file                               |
+| `env install-github-action`       | Set DOTENV_PRIVATE_KEY_DEVELOPMENT/PRODUCTION in GitHub Actions secrets |
+| `env sync`                        | Run typegen and sync to configured targets                              |
 
 ## License
 

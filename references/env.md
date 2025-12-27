@@ -1,6 +1,6 @@
 # Environment Variables Management
 
-This project uses `env-tool` for encrypted environment variable management.
+This project uses `env` for encrypted environment variable management.
 
 ## Quick Reference
 
@@ -33,13 +33,13 @@ bun env diff wrangler     # local vs wrangler
 
 ## File Structure
 
-| File | Purpose | Git |
-|------|---------|-----|
-| `.env.development` | Dev secrets (encrypted) | ✅ Commit |
-| `.env.production` | Prod secrets (encrypted) | ✅ Commit |
-| `.env.local` | Decrypted dev vars for local use | ❌ Ignore |
-| `.env.keys` | Private decryption keys | ❌ Ignore |
-| `env.config.ts` | Tool configuration | ✅ Commit |
+| File               | Purpose                          | Git       |
+| ------------------ | -------------------------------- | --------- |
+| `.env.development` | Dev secrets (encrypted)          | ✅ Commit |
+| `.env.production`  | Prod secrets (encrypted)         | ✅ Commit |
+| `.env.local`       | Decrypted dev vars for local use | ❌ Ignore |
+| `.env.keys`        | Private decryption keys          | ❌ Ignore |
+| `env.config.ts`    | Tool configuration               | ✅ Commit |
 
 ## Workflow
 
@@ -69,6 +69,7 @@ bun env import .env -f .env.production
 ### Switching environments
 
 The tool manages two environments:
+
 - `development` (default) - use `-e dev` or omit flag
 - `production` - use `-e prod`
 
@@ -156,6 +157,7 @@ export type Config = {
 ```
 
 Notes:
+
 - If `wrangler.jsonc` has a single environment, do not set `envMapping`.
 - With a single-environment Worker, `bun env sync -e dev` will skip Wrangler sync with a warning.
 - Use `bun env sync -e prod` to sync Wrangler in single-environment setups.
@@ -185,10 +187,10 @@ DOTENV_PRIVATE_KEY_PRODUCTION=...
 
 ## Common Tasks
 
-| Task | Command |
-|------|---------|
-| Initialize project | `bun env init` |
-| Add secret | `bun env set SECRET value` |
-| View all vars | `bun env ls` |
-| Check diff before deploy | `bun env diff convex` |
-| Deploy to prod | `bun env sync -e prod` |
+| Task                     | Command                    |
+| ------------------------ | -------------------------- |
+| Initialize project       | `bun env init`             |
+| Add secret               | `bun env set SECRET value` |
+| View all vars            | `bun env ls`               |
+| Check diff before deploy | `bun env diff convex`      |
+| Deploy to prod           | `bun env sync -e prod`     |
