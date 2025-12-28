@@ -75,13 +75,15 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	// Watch mode
 	console.log(fmt.info('Starting watch mode...'))
 
+	const watchers: ReturnType<typeof watch>[] = []
+
 	for (const e of envs) {
 		const envPath = getEnvFilePath(config, e)
 		console.log(`  watching: ${fmt.cyan(envPath)}`)
 
 		await runSyncOnce(config, e, dryRun, env === 'all')
 
-		watch(envPath, { persistent: true }, async (eventType) => {
+		const watcher = watch(envPath, { persistent: true }, async (eventType) => {
 			if (eventType === 'change') {
 				console.log('')
 				fmt.success(`Change detected: ${envPath}`)
@@ -89,11 +91,16 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 				fmt.info('Waiting for changes...')
 			}
 		})
+		watchers.push(watcher)
 	}
 
 	console.log(fmt.info('Waiting for changes...\n'))
 
-	await new Promise(() => {})
+	// Keep process alive - watchers array prevents GC
+	await new Promise(() => {
+		// Reference watchers to prevent GC
+		void watchers
+	})
 }
 
 async function runSyncOnce(
