@@ -2,20 +2,29 @@ import { fmt } from 'argc/terminal'
 
 import type { AppHandlers } from '../cli'
 
-function extractKey(content: string, keyName: string): string | undefined {
-	const match = content.match(
-		new RegExp(`^\\s*${keyName}\\s*=\\s*(.+)\\s*$`, 'm'),
-	)
-	if (!match) return undefined
+function parseEnvKeys(content: string): Array<[string, string]> {
+	const entries: Array<[string, string]> = []
+	for (const rawLine of content.split('\n')) {
+		const line = rawLine.trim()
+		if (!line || line.startsWith('#')) continue
 
-	let value = match[1]!.trim()
-	if (
-		(value.startsWith('"') && value.endsWith('"')) ||
-		(value.startsWith("'") && value.endsWith("'"))
-	) {
-		value = value.slice(1, -1)
+		const match = line.match(/^([^=]+)=(.*)$/)
+		if (!match) continue
+
+		const key = match[1]!.trim()
+		let value = match[2]!.trim()
+		if (
+			(value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'"))
+		) {
+			value = value.slice(1, -1)
+		}
+
+		if (key.startsWith('DOTENV_PRIVATE_')) {
+			entries.push([key, value])
+		}
 	}
-	return value
+	return entries
 }
 
 export const runInstallGithubAction: AppHandlers['install-github-action'] =
@@ -24,23 +33,43 @@ export const runInstallGithubAction: AppHandlers['install-github-action'] =
 		const keysFile = Bun.file(keysPath)
 
 		if (!(await keysFile.exists())) {
-			console.log(fmt.error(`File not found: ${keysPath}`))
-			process.exit(1)
-		}
+			const privateKeyEnvs = Object.entries(process.env)
+				.filter(([key, value]) => key.startsWith('DOTENV_PRIVATE_') && !!value)
+				.map(([key, value]) => `${key}=${value}`)
 
-		const content = await keysFile.text()
-		const targets = [
-			'DOTENV_PRIVATE_KEY_DEVELOPMENT',
-			'DOTENV_PRIVATE_KEY_PRODUCTION',
-		]
-
-		for (const keyName of targets) {
-			const privateKey = extractKey(content, keyName)
-			if (!privateKey) {
-				console.log(fmt.error(`${keyName} not found in .env.keys`))
+			if (privateKeyEnvs.length === 0) {
+				console.log(fmt.error(`File not found: ${keysPath}`))
+				console.log(
+					fmt.error(
+						'No DOTENV_PRIVATE_* env vars found. Please create .env.keys or set env vars first.',
+					),
+				)
 				process.exit(1)
 			}
 
+			const content = `#/------------------!DOTENV_PRIVATE_KEYS!-------------------/
+#/ private decryption keys. DO NOT commit to source control /
+#/     [how it works](https://dotenvx.com/encryption)       /
+#/----------------------------------------------------------/
+
+${privateKeyEnvs.join('\n')}
+`
+			await Bun.write(keysPath, content)
+			console.log(fmt.success(`create ${keysPath} (from env vars)`))
+		}
+
+		const content = await keysFile.text()
+		const targets = parseEnvKeys(content)
+		if (targets.length === 0) {
+			console.log(fmt.error('No DOTENV_PRIVATE_* keys found in .env.keys'))
+			process.exit(1)
+		}
+
+		for (const [keyName, privateKey] of targets) {
+			if (!privateKey) {
+				console.log(fmt.error(`${keyName} is empty in ${keysPath}`))
+				process.exit(1)
+			}
 			const args = ['gh', 'secret', 'set', keyName, '-b', privateKey]
 			if (repo) {
 				args.push('--repo', repo)
@@ -55,8 +84,6 @@ export const runInstallGithubAction: AppHandlers['install-github-action'] =
 		}
 
 		console.log(
-			fmt.success(
-				'GitHub Actions secrets DOTENV_PRIVATE_KEY_DEVELOPMENT and DOTENV_PRIVATE_KEY_PRODUCTION set',
-			),
+			fmt.success('GitHub Actions secrets set from DOTENV_PRIVATE_* keys'),
 		)
 	}

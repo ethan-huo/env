@@ -171,7 +171,7 @@ root `.env.local` (existing files are skipped).
 
 ## Private Keys
 
-Decryption keys are stored in `~/.env.keys` (symlinked to project) or via environment variables:
+Decryption keys are stored in `.env.keys` (project file, never commit) or via environment variables:
 
 ```bash
 DOTENV_PRIVATE_KEY_DEVELOPMENT=...
@@ -180,10 +180,9 @@ DOTENV_PRIVATE_KEY_PRODUCTION=...
 
 ## CI Notes
 
-- CI runs `bun env init`, so GitHub Secrets must include:
-  - `DOTENV_PRIVATE_KEY_DEVELOPMENT`
-  - `DOTENV_PRIVATE_KEY_PRODUCTION`
-- Run `bun env install-github-action` locally once to sync dev + prod keys to GitHub Actions.
+- In CI, set `DOTENV_PRIVATE_*` secrets as environment variables.
+- Run `bun env install-github-action` locally once to sync keys to GitHub Actions.
+- In GitHub Actions, running `bun env install-github-action` will write `.env.keys` from env vars.
 
 ## Common Tasks
 

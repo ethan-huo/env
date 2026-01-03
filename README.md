@@ -106,12 +106,10 @@ export type PrivateEnv = v.InferOutput<typeof privateEnvSchema>
 
 ## Encryption Workflow
 
-1. `env init` creates symlink `.env.keys → ~/.env.keys`
-2. Edit `.env.development` and `.env.production`
-3. Run `dotenvx encrypt -f .env.development` to encrypt
-4. Private keys are stored in `~/.env.keys` (never commit)
-
-In CI, set `DOTENV_PRIVATE_KEY_DEVELOPMENT` and `DOTENV_PRIVATE_KEY_PRODUCTION` environment variables.
+1. Edit `.env.development` and `.env.production`
+2. Run `dotenvx encrypt -f .env.development` to encrypt
+3. Store private keys in `.env.keys` (never commit) or set `DOTENV_PRIVATE_*` env vars
+4. Run `env install-github-action` to sync `DOTENV_PRIVATE_*` to GitHub Actions secrets
 
 ## Commands
 
@@ -124,7 +122,7 @@ In CI, set `DOTENV_PRIVATE_KEY_DEVELOPMENT` and `DOTENV_PRIVATE_KEY_PRODUCTION` 
 | `env rm <key>`                    | Remove variable                                                         |
 | `env diff [target]`               | Compare envs or dotenvx vs sync targets                                 |
 | `env import <source> -f <target>` | Import plain .env into encrypted env file                               |
-| `env install-github-action`       | Set DOTENV_PRIVATE_KEY_DEVELOPMENT/PRODUCTION in GitHub Actions secrets |
+| `env install-github-action`       | Set DOTENV_PRIVATE_* keys in GitHub Actions secrets                     |
 | `env sync`                        | Run typegen and sync to configured targets                              |
 
 ## License

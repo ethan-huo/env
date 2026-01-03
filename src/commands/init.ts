@@ -1,6 +1,5 @@
 import { fmt } from 'argc/terminal'
-import { symlink, readlink, mkdir, copyFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { mkdir, copyFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { AppHandlers } from '../cli'
@@ -10,58 +9,11 @@ import { loadEnvFile, serializeEnvRecord } from '../utils/dotenv'
 export const runInit: AppHandlers['init'] = async ({ input }) => {
 	const { force } = input
 	const cwd = process.cwd()
-	const home = homedir()
-
 	console.log('')
 	fmt.info('Initializing env...')
 	console.log('')
 
-	// 1. Handle .env.keys
-	const keysPath = `${cwd}/.env.keys`
-	const globalKeysPath = `${home}/.env.keys`
-	const keysFile = Bun.file(keysPath)
-	const keysExists = await keysFile.exists()
-
-	const privateKeyEnvs = Object.entries(process.env)
-		.filter(([key]) => key.startsWith('DOTENV_PRIVATE_KEY'))
-		.map(([key, value]) => `${key}=${value}`)
-
-	const globalKeysFile = Bun.file(globalKeysPath)
-	const globalKeysExists = await globalKeysFile.exists()
-
-	if (keysExists) {
-		try {
-			const target = await readlink(keysPath)
-			if (target === globalKeysPath) {
-				console.log(fmt.dim('- skip .env.keys (already linked)'))
-			} else {
-				console.log(fmt.dim('- skip .env.keys (exists)'))
-			}
-		} catch {
-			console.log(fmt.dim('- skip .env.keys (exists)'))
-		}
-	} else if (globalKeysExists) {
-		await symlink(globalKeysPath, keysPath)
-		console.log(fmt.success('link .env.keys → ~/.env.keys'))
-	} else if (privateKeyEnvs.length > 0) {
-		const content = `#/------------------!DOTENV_PRIVATE_KEYS!-------------------/
-#/ private decryption keys. DO NOT commit to source control /
-#/     [how it works](https://dotenvx.com/encryption)       /
-#/----------------------------------------------------------/
-
-${privateKeyEnvs.join('\n')}
-`
-		await Bun.write(keysPath, content)
-		console.log(fmt.success('create .env.keys (from env vars)'))
-	} else {
-		console.log(
-			fmt.warn(
-				'~/.env.keys not found, please create it or set DOTENV_PRIVATE_KEY_* env vars',
-			),
-		)
-	}
-
-	// 2. Create .env.development
+	// 1. Create .env.development
 	const devEnvPath = `${cwd}/.env.development`
 	const devEnvExists = await Bun.file(devEnvPath).exists()
 	if (!devEnvExists || force) {
