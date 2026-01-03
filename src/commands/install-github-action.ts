@@ -1,31 +1,7 @@
+import dotenvx from '@dotenvx/dotenvx'
 import { fmt } from 'argc/terminal'
 
 import type { AppHandlers } from '../cli'
-
-function parseEnvKeys(content: string): Array<[string, string]> {
-	const entries: Array<[string, string]> = []
-	for (const rawLine of content.split('\n')) {
-		const line = rawLine.trim()
-		if (!line || line.startsWith('#')) continue
-
-		const match = line.match(/^([^=]+)=(.*)$/)
-		if (!match) continue
-
-		const key = match[1]!.trim()
-		let value = match[2]!.trim()
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
-			value = value.slice(1, -1)
-		}
-
-		if (key.startsWith('DOTENV_PRIVATE_')) {
-			entries.push([key, value])
-		}
-	}
-	return entries
-}
 
 export const runInstallGithubAction: AppHandlers['install-github-action'] =
 	async ({ input }) => {
@@ -59,7 +35,10 @@ ${privateKeyEnvs.join('\n')}
 		}
 
 		const content = await Bun.file(keysPath).text()
-		const targets = parseEnvKeys(content)
+		const parsed = dotenvx.parse(content, { processEnv: {} })
+		const targets = Object.entries(parsed).filter(([key]) =>
+			key.startsWith('DOTENV_PRIVATE_'),
+		)
 		if (targets.length === 0) {
 			console.log(fmt.error('No DOTENV_PRIVATE_* keys found in .env.keys'))
 			process.exit(1)
