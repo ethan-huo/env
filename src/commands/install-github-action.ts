@@ -58,7 +58,7 @@ ${privateKeyEnvs.join('\n')}
 			console.log(fmt.success(`create ${keysPath} (from env vars)`))
 		}
 
-		const content = await keysFile.text()
+		const content = await Bun.file(keysPath).text()
 		const targets = parseEnvKeys(content)
 		if (targets.length === 0) {
 			console.log(fmt.error('No DOTENV_PRIVATE_* keys found in .env.keys'))
