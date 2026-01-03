@@ -53,11 +53,22 @@ export const runInstallGithubAction: AppHandlers['install-github-action'] =
 			.map(([key, value]) => `${key}=${value}`)
 
 		if (privateKeyEnvs.length === 0) {
-			console.log(fmt.error(`File not found: ${keysPath}`))
+			console.log(fmt.error('No DOTENV_PRIVATE_* keys found'))
+			console.log('')
+			console.log('To set up GitHub Actions secrets:')
+			console.log('')
+			console.log('  Local (first time):')
+			console.log('    1. Run: bun env init')
+			console.log('    2. Run: bun env install-github-action')
+			console.log('')
+			console.log('  CI (GitHub Actions):')
+			console.log('    Set these secrets in your workflow:')
+			console.log('      env:')
 			console.log(
-				fmt.error(
-					'No DOTENV_PRIVATE_* env vars found. Please create .env.keys or set env vars first.',
-				),
+				'        DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}',
+			)
+			console.log(
+				'        DOTENV_PRIVATE_KEY_PRODUCTION: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}',
 			)
 			process.exit(1)
 		}
