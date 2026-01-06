@@ -13,8 +13,7 @@ export type ProcessEnvUsageOptions = {
 	excludeDirs?: string[]
 }
 
-const DEFAULT_GLOB =
-	'**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts,vue,svelte}'
+const DEFAULT_GLOB = '**/*.{ts,tsx}'
 
 const DEFAULT_EXCLUDE_DIRS = [
 	'node_modules',
