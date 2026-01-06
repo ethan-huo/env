@@ -16,6 +16,7 @@ import {
 import { syncToConvex } from '../utils/sync-convex'
 import { syncToWrangler } from '../utils/sync-wrangler'
 import { generateTypes, LAZY_TS_CONTENT } from '../utils/typegen'
+import { findProcessEnvUsageIssues } from '../utils/process-env-usage'
 
 export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	const { config, env } = context
@@ -76,18 +77,20 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	console.log(fmt.info('Starting watch mode...'))
 
 	const watchers: ReturnType<typeof watch>[] = []
+	let didScanUsage = false
 
 	for (const e of envs) {
 		const envPath = getEnvFilePath(config, e)
 		console.log(`  watching: ${fmt.cyan(envPath)}`)
 
-		await runSyncOnce(config, e, dryRun, env === 'all')
+			await runSyncOnce(config, e, dryRun, env === 'all', !didScanUsage)
+			didScanUsage = true
 
 		const watcher = watch(envPath, { persistent: true }, async (eventType) => {
 			if (eventType === 'change') {
 				console.log('')
 				fmt.success(`Change detected: ${envPath}`)
-				await runSyncOnce(config, e, dryRun, env === 'all')
+				await runSyncOnce(config, e, dryRun, env === 'all', true)
 				fmt.info('Waiting for changes...')
 			}
 		})
@@ -108,6 +111,7 @@ async function runSyncOnce(
 	env: 'dev' | 'prod',
 	dryRun: boolean,
 	allMode = false,
+	scanUsage = false,
 ) {
 	const envPath = getEnvFilePath(config, env)
 
@@ -115,6 +119,26 @@ async function runSyncOnce(
 		const envRecord = await loadEnvFile(envPath)
 		const publicPrefixes = config.typegen?.publicPrefix ?? ['VITE_', 'PUBLIC_']
 		const vars = parseEnvVars(envRecord, publicPrefixes)
+		const envKeys = new Set(vars.map((v) => v.key))
+
+		if (scanUsage) {
+			const issues = await findProcessEnvUsageIssues({ envKeys })
+			if (issues.length > 0) {
+				console.log(
+					fmt.warn(
+						`process.env references not in ${envPath} (${issues.length}):`,
+					),
+				)
+				for (const issue of issues) {
+					const sample = issue.locations.slice(0, 3).join(', ')
+					const suffix =
+						issue.locations.length > 3
+							? ` (+${issue.locations.length - 3} more)`
+							: ''
+					console.log(fmt.warn(`  - ${issue.key}: ${sample}${suffix}`))
+				}
+			}
+		}
 
 		// Generate .env.local
 		if (env === 'dev') {
