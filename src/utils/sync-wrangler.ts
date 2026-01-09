@@ -1,10 +1,10 @@
 import { dirname, resolve } from 'node:path'
 
-import type { EnvType, SyncConfig } from '../config'
+import type { EnvType, WranglerSyncConfig } from '../config'
 
 import { shouldExclude } from './dotenv'
 
-type WranglerConfig = NonNullable<SyncConfig['wrangler']>
+type WranglerConfig = WranglerSyncConfig
 
 /** 构建 wrangler 命令参数（处理 env mapping） */
 function buildWranglerArgs(

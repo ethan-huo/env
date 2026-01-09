@@ -76,10 +76,12 @@ export default defineConfig({
   //   convex: {
   //     exclude: ['CONVEX_*'],
   //   },
-  //   wrangler: {
-  //     config: './wrangler.jsonc',
-  //     exclude: ['VITE_*'],
-  //   },
+  //   wrangler: [
+  //     {
+  //       config: './wrangler.jsonc',
+  //       exclude: ['VITE_*'],
+  //     },
+  //   ],
   //   links: ['./web', './app2'],
   // },
 })

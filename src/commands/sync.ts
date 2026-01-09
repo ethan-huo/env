@@ -4,7 +4,7 @@ import { watch } from 'fs'
 import { mkdir, lstat, readFile, readlink, symlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import type { Config } from '../config'
+import type { Config, WranglerSyncConfig } from '../config'
 import type { AppHandlers } from '../cli'
 
 import {
@@ -13,6 +13,7 @@ import {
 	parseEnvVars,
 	serializeEnvRecord,
 } from '../utils/dotenv'
+import { normalizeWranglerConfigs } from '../config'
 import { syncToConvex } from '../utils/sync-convex'
 import { syncToWrangler } from '../utils/sync-wrangler'
 import { generateTypes, LAZY_TS_CONTENT } from '../utils/typegen'
@@ -28,40 +29,41 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	}
 
 	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
-	const wranglerConfig = config.sync?.wrangler
-	const envMapping = wranglerConfig?.envMapping
+	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
+	if (wranglerConfigs.length > 0) {
+		for (const wranglerConfig of wranglerConfigs) {
+			const envMapping = wranglerConfig.envMapping
+			const wranglerConfigPath = wranglerConfig.config ?? './wrangler.jsonc'
+			const hasMultiEnv = await hasWranglerMultiEnv(wranglerConfigPath)
 
-	if (wranglerConfig) {
-		const wranglerConfigPath = wranglerConfig.config ?? './wrangler.jsonc'
-		const hasMultiEnv = await hasWranglerMultiEnv(wranglerConfigPath)
-
-		if (hasMultiEnv && !envMapping) {
-			console.error(
-				'Error: wrangler.jsonc defines multiple environments. Configure sync.wrangler.envMapping.',
-			)
-			process.exit(1)
-		}
-
-		if (envMapping) {
-			if (env === 'dev' && !envMapping.dev) {
+			if (hasMultiEnv && !envMapping) {
 				console.error(
-					'Error: wrangler envMapping.dev is required for `-e dev`.',
+					'Error: wrangler.jsonc defines multiple environments. Configure sync.wrangler.envMapping.',
 				)
 				process.exit(1)
 			}
 
-			if (env === 'prod' && !envMapping.prod) {
-				console.error(
-					'Error: wrangler envMapping.prod is required for `-e prod`.',
-				)
-				process.exit(1)
-			}
+			if (envMapping) {
+				if (env === 'dev' && !envMapping.dev) {
+					console.error(
+						'Error: wrangler envMapping.dev is required for `-e dev`.',
+					)
+					process.exit(1)
+				}
 
-			if (env === 'all' && (!envMapping.dev || !envMapping.prod)) {
-				console.error(
-					'Error: wrangler envMapping.dev and envMapping.prod are required for `-e all`.',
-				)
-				process.exit(1)
+				if (env === 'prod' && !envMapping.prod) {
+					console.error(
+						'Error: wrangler envMapping.prod is required for `-e prod`.',
+					)
+					process.exit(1)
+				}
+
+				if (env === 'all' && (!envMapping.dev || !envMapping.prod)) {
+					console.error(
+						'Error: wrangler envMapping.dev and envMapping.prod are required for `-e all`.',
+					)
+					process.exit(1)
+				}
 			}
 		}
 	}
@@ -235,21 +237,26 @@ async function runSyncOnce(
 		}
 
 		// Sync to Wrangler
-		if (config.sync?.wrangler) {
-			const wranglerConfig = config.sync.wrangler
-			const hasMultiEnv = await hasWranglerMultiEnv(
-				wranglerConfig.config ?? './wrangler.jsonc',
-			)
-
-			if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
-				console.log(
-					fmt.warn(
-						allMode
-							? 'Wrangler is single-environment: dev sync skipped (all mode). Only prod is synced.'
-							: 'Wrangler sync skipped for dev (single-environment worker). Use `-e prod` to sync.',
-					),
+		const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
+		if (wranglerConfigs.length > 0) {
+			const hasMultiple = wranglerConfigs.length > 1
+			for (const [index, wranglerConfig] of wranglerConfigs.entries()) {
+				const label = formatWranglerLabel(wranglerConfig, index, hasMultiple)
+				const hasMultiEnv = await hasWranglerMultiEnv(
+					wranglerConfig.config ?? './wrangler.jsonc',
 				)
-			} else {
+
+				if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
+					console.log(
+						fmt.warn(
+							allMode
+								? `${label}: single-environment (all mode). Dev sync skipped; only prod is synced.`
+								: `${label}: single-environment. Dev sync skipped; use \`-e prod\` to sync.`,
+						),
+					)
+					continue
+				}
+
 				const result = await syncToWrangler(
 					envRecord,
 					env,
@@ -258,7 +265,7 @@ async function runSyncOnce(
 				)
 
 				if (dryRun) {
-					console.log(fmt.dim(`[dry-run] Wrangler:`))
+					console.log(fmt.dim(`[dry-run] ${label}:`))
 					if (result.added.length)
 						console.log(fmt.green(`  + ${result.added.join(', ')}`))
 					if (result.updated.length)
@@ -278,11 +285,11 @@ async function runSyncOnce(
 					if (total > 0) {
 						console.log(
 							fmt.success(
-								`Wrangler: ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
+								`${label}: ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
 							),
 						)
 					} else {
-						console.log(fmt.success(`Wrangler: no changes`))
+						console.log(fmt.success(`${label}: no changes`))
 					}
 				}
 			}
@@ -351,4 +358,14 @@ async function hasWranglerMultiEnv(configPath: string): Promise<boolean> {
 	} catch {
 		return false
 	}
+}
+
+function formatWranglerLabel(
+	config: WranglerSyncConfig,
+	index: number,
+	multiple: boolean,
+): string {
+	if (!multiple) return 'Wrangler'
+	const configPath = config.config ?? './wrangler.jsonc'
+	return `Wrangler[${index + 1}]: ${configPath}`
 }

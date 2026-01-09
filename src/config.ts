@@ -32,7 +32,9 @@ const wranglerSyncSchema = v.object({
 
 const syncSchema = v.object({
 	convex: v.optional(convexSyncSchema),
-	wrangler: v.optional(wranglerSyncSchema),
+	wrangler: v.optional(
+		v.union([wranglerSyncSchema, v.array(wranglerSyncSchema)]),
+	),
 	links: v.optional(v.array(v.string()), []),
 })
 
@@ -51,12 +53,20 @@ const configSchema = v.object({
 export type Config = v.InferOutput<typeof configSchema>
 export type TypegenConfig = v.InferOutput<typeof typegenSchema>
 export type SyncConfig = v.InferOutput<typeof syncSchema>
+export type WranglerSyncConfig = v.InferOutput<typeof wranglerSyncSchema>
 
 // 内置忽略前缀
 export const BUILTIN_EXCLUDE_PREFIXES = ['DOTENV_']
 
 export function defineConfig(config: Config): Config {
 	return v.parse(configSchema, config)
+}
+
+export function normalizeWranglerConfigs(
+	wrangler?: SyncConfig['wrangler'],
+): WranglerSyncConfig[] {
+	if (!wrangler) return []
+	return Array.isArray(wrangler) ? wrangler : [wrangler]
 }
 
 export async function loadConfig(configPath?: string): Promise<Config> {

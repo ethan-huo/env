@@ -1,9 +1,10 @@
 import { fmt, printTable, type TableColumn, type TableRow } from 'argc/terminal'
 import { dirname, resolve } from 'node:path'
 
-import type { Config, EnvType } from '../config'
+import type { Config, EnvType, WranglerSyncConfig } from '../config'
 import type { AppHandlers } from '../cli'
 
+import { normalizeWranglerConfigs } from '../config'
 import { getEnvFilePath, loadEnvFile, shouldExclude } from '../utils/dotenv'
 import { getWranglerSecrets } from '../utils/sync-wrangler'
 
@@ -32,11 +33,12 @@ async function diffAll(config: Config, env: EnvType) {
 	}
 
 	const hasConvex = !!config.sync?.convex
-	const hasWrangler = !!config.sync?.wrangler
+	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
+	const hasWrangler = wranglerConfigs.length > 0
 
 	const convexRecord = hasConvex ? await getConvexEnv(env) : {}
 	const wranglerKeys = hasWrangler
-		? await getWranglerSecretsForDiff(config, env)
+		? await getWranglerSecretsForDiff(wranglerConfigs, env)
 		: new Set<string>()
 
 	const allKeys = new Set([
@@ -47,7 +49,7 @@ async function diffAll(config: Config, env: EnvType) {
 
 	const excludePatterns = [
 		...(config.sync?.convex?.exclude ?? []),
-		...(config.sync?.wrangler?.exclude ?? []),
+		...wranglerConfigs.flatMap((cfg) => cfg.exclude ?? []),
 	]
 
 	const envFileName = envPath.split('/').pop() ?? `.env.${env}`
@@ -187,14 +189,17 @@ async function getConvexEnv(env: EnvType): Promise<Record<string, string>> {
 }
 
 async function getWranglerSecretsForDiff(
-	config: Config,
+	wranglerConfigs: WranglerSyncConfig[],
 	env: EnvType,
 ): Promise<Set<string>> {
-	const wranglerConfig = config.sync?.wrangler
-	if (!wranglerConfig) return new Set()
+	const all = new Set<string>()
 
-	const configPath = wranglerConfig.config ?? './wrangler.jsonc'
-	const wranglerDir = dirname(resolve(configPath))
+	for (const wranglerConfig of wranglerConfigs) {
+		const configPath = wranglerConfig.config ?? './wrangler.jsonc'
+		const wranglerDir = dirname(resolve(configPath))
+		const keys = await getWranglerSecrets(wranglerDir, wranglerConfig, env)
+		for (const key of keys) all.add(key)
+	}
 
-	return getWranglerSecrets(wranglerDir, wranglerConfig, env)
+	return all
 }
