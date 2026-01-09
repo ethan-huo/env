@@ -12,11 +12,16 @@ function buildWranglerArgs(
 	config: WranglerConfig,
 	env?: EnvType,
 ): string[] {
+	const args = [...baseArgs]
+	const configPath = resolve(config.config ?? './wrangler.jsonc')
+	args.push('--config', configPath)
+
 	const wranglerEnv = env ? config.envMapping?.[env] : undefined
 	if (wranglerEnv) {
-		return [...baseArgs, '--env', wranglerEnv]
+		args.push('--env', wranglerEnv)
 	}
-	return baseArgs
+
+	return args
 }
 
 /**
