@@ -1,4 +1,4 @@
-import { dirname, resolve } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
 
 import type { EnvType, WranglerSyncConfig } from '../config'
 
@@ -10,11 +10,15 @@ type WranglerConfig = WranglerSyncConfig
 function buildWranglerArgs(
 	baseArgs: string[],
 	config: WranglerConfig,
+	cwd: string,
 	env?: EnvType,
 ): string[] {
 	const args = [...baseArgs]
 	const configPath = resolve(config.config ?? './wrangler.jsonc')
-	args.push('--config', configPath)
+	if (basename(configPath) !== 'wrangler.jsonc') {
+		args.push('--config', configPath)
+	}
+	args.push('--cwd', cwd)
 
 	const wranglerEnv = env ? config.envMapping?.[env] : undefined
 	if (wranglerEnv) {
@@ -90,7 +94,7 @@ export async function getWranglerSecrets(
 	env?: EnvType,
 ): Promise<Set<string>> {
 	const baseArgs = ['wrangler', 'secret', 'list', '--format', 'json']
-	const args = config ? buildWranglerArgs(baseArgs, config, env) : baseArgs
+	const args = config ? buildWranglerArgs(baseArgs, config, cwd, env) : baseArgs
 
 	const result = Bun.spawnSync(['bunx', ...args], {
 		stdout: 'pipe',
@@ -124,7 +128,7 @@ async function bulkUploadSecrets(
 
 	try {
 		const baseArgs = ['wrangler', 'secret', 'bulk', tempFile]
-		const args = buildWranglerArgs(baseArgs, config, env)
+		const args = buildWranglerArgs(baseArgs, config, cwd, env)
 
 		const result = Bun.spawnSync(['bunx', ...args], {
 			stdout: 'pipe',
@@ -150,7 +154,7 @@ async function deleteWranglerSecret(
 	env: EnvType,
 ): Promise<void> {
 	const baseArgs = ['wrangler', 'secret', 'delete', key, '--force']
-	const args = buildWranglerArgs(baseArgs, config, env)
+	const args = buildWranglerArgs(baseArgs, config, cwd, env)
 
 	let result = Bun.spawnSync(['bunx', ...args], {
 		stdout: 'pipe',
@@ -164,6 +168,7 @@ async function deleteWranglerSecret(
 			const retryArgs = buildWranglerArgs(
 				['wrangler', 'secret', 'delete', key],
 				config,
+				cwd,
 				env,
 			)
 			result = Bun.spawnSync(['bunx', ...retryArgs], {
