@@ -20,7 +20,7 @@ export const app = cli(schema, {
 	globals: globalsSchema,
 	context: async (globals) => ({
 		config: await loadConfig(),
-		env: globals.env,
+		env: globals.env ?? globals.e ?? 'dev',
 	}),
 })
 
