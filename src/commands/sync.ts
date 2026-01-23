@@ -42,29 +42,6 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 				)
 				process.exit(1)
 			}
-
-			if (envMapping) {
-				if (env === 'dev' && !envMapping.dev) {
-					console.error(
-						'Error: wrangler envMapping.dev is required for `-e dev`.',
-					)
-					process.exit(1)
-				}
-
-				if (env === 'prod' && !envMapping.prod) {
-					console.error(
-						'Error: wrangler envMapping.prod is required for `-e prod`.',
-					)
-					process.exit(1)
-				}
-
-				if (env === 'all' && (!envMapping.dev || !envMapping.prod)) {
-					console.error(
-						'Error: wrangler envMapping.dev and envMapping.prod are required for `-e all`.',
-					)
-					process.exit(1)
-				}
-			}
 		}
 	}
 

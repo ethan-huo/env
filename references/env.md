@@ -17,10 +17,10 @@ bun env rm <KEY>
 bun env sync
 
 # Watch mode - auto sync on file changes
-bun env sync -w
+bun env sync --watch
 
 # Import plain .env into encrypted env file
-bun env import .env -f .env.production
+bun env import .env --file .env.production
 
 # Install GitHub Actions secrets (dev + prod)
 bun env install-github-action
@@ -63,21 +63,21 @@ bun env sync
 ### Import plain .env
 
 ```bash
-bun env import .env -f .env.production
+bun env import .env --file .env.production
 ```
 
 ### Switching environments
 
 The tool manages two environments:
 
-- `development` (default) - use `-e dev` or omit flag
-- `production` - use `-e prod`
+- `development` (default) - use `--env dev` or omit flag
+- `production` - use `--env prod`
 
 ```bash
-bun env ls -e prod           # List prod vars
-bun env set -e prod KEY val  # Set in prod
-bun env rm -e prod KEY       # Remove from prod
-bun env sync -e prod         # Sync prod
+bun env ls --env prod           # List prod vars
+bun env set --env prod KEY val  # Set in prod
+bun env rm --env prod KEY       # Remove from prod
+bun env sync --env prod         # Sync prod
 ```
 
 ## Type Generation
@@ -159,9 +159,10 @@ export type Config = {
 Notes:
 
 - If `wrangler.jsonc` has a single environment, do not set `envMapping`.
-- With a single-environment Worker, `bun env sync -e dev` will skip Wrangler sync with a warning.
-- Use `bun env sync -e prod` to sync Wrangler in single-environment setups.
+- With a single-environment Worker, `bun env sync --env dev` will skip Wrangler sync with a warning.
+- Use `bun env sync --env prod` to sync Wrangler in single-environment setups.
 - If `wrangler.jsonc` defines multiple environments, `envMapping` is required.
+- Omitting a key in `envMapping` (e.g. no `prod`) means that env syncs to wrangler's top-level (no `--env` flag).
 
 ## .env.local
 
@@ -192,4 +193,4 @@ DOTENV_PRIVATE_KEY_PRODUCTION=...
 | Add secret               | `bun env set SECRET value` |
 | View all vars            | `bun env ls`               |
 | Check diff before deploy | `bun env diff convex`      |
-| Deploy to prod           | `bun env sync -e prod`     |
+| Deploy to prod           | `bun env sync --env prod`     |
