@@ -1,5 +1,5 @@
 import { fmt } from 'argc/terminal'
-import { parseJSONC } from 'confbox'
+
 import { watch } from 'fs'
 import { mkdir, lstat, readFile, readlink, symlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -327,7 +327,7 @@ async function hasWranglerMultiEnv(configPath: string): Promise<boolean> {
 	try {
 		const absPath = resolve(configPath)
 		const content = await readFile(absPath, 'utf8')
-		const parsed = parseJSONC(content) as { env?: Record<string, unknown> }
+		const parsed = Bun.JSONC.parse(content) as { env?: Record<string, unknown> }
 		if (!parsed || typeof parsed !== 'object') return false
 		const env = parsed.env
 		if (!env || typeof env !== 'object' || Array.isArray(env)) return false
