@@ -44,10 +44,25 @@ export function generateTypes(vars: EnvVar[], config: TypegenConfig): string {
 	return generateValibotTypes(publicVars, privateVars)
 }
 
+function appendProcessEnvReader(lines: string[], vars: EnvVar[]) {
+	lines.push(
+		'// Rebuild process.env explicitly so static analyzers can see the exact runtime dependencies.',
+	)
+	lines.push('function readProcessEnv() {')
+	lines.push('\treturn {')
+	for (const v of vars) {
+		lines.push(`\t\t${v.key}: process.env.${v.key},`)
+	}
+	lines.push('\t}')
+	lines.push('}')
+	lines.push('')
+}
+
 function generateValibotTypes(
 	publicVars: EnvVar[],
 	privateVars: EnvVar[],
 ): string {
+	const allVars = [...publicVars, ...privateVars]
 	const lines: string[] = [
 		GENERATED_HEADER,
 		"import * as v from 'valibot'",
@@ -87,8 +102,10 @@ function generateValibotTypes(
 	lines.push('export type Env = v.InferOutput<typeof envSchema>')
 	lines.push('')
 
+	appendProcessEnvReader(lines, allVars)
+
 	// Lazy env
-	lines.push('export const env$ = lazy(() => v.parse(envSchema, process.env))')
+	lines.push('export const env$ = lazy(() => v.parse(envSchema, readProcessEnv()))')
 	lines.push('')
 
 	lines.push(...generateEnvDtsHint())
@@ -97,6 +114,7 @@ function generateValibotTypes(
 }
 
 function generateZodTypes(publicVars: EnvVar[], privateVars: EnvVar[]): string {
+	const allVars = [...publicVars, ...privateVars]
 	const lines: string[] = [
 		GENERATED_HEADER,
 		"import { z } from 'zod'",
@@ -133,8 +151,10 @@ function generateZodTypes(publicVars: EnvVar[], privateVars: EnvVar[]): string {
 	lines.push('export type Env = z.infer<typeof envSchema>')
 	lines.push('')
 
+	appendProcessEnvReader(lines, allVars)
+
 	// Lazy env
-	lines.push('export const env$ = lazy(() => envSchema.parse(process.env))')
+	lines.push('export const env$ = lazy(() => envSchema.parse(readProcessEnv()))')
 	lines.push('')
 
 	lines.push(...generateEnvDtsHint())
