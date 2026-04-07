@@ -1,34 +1,47 @@
 import type { AppHandlers } from '../cli'
 
-import { getEnvFilePath, loadEnvFile } from '../utils/dotenv'
+import { resolveEnvFiles, loadEnvFile } from '../utils/dotenv'
 
 export const runGet: AppHandlers['get'] = async ({ input, context }) => {
 	const { config, env } = context
 	const { key } = input
 
-	const results: Array<{ env: string; value: string | null }> = []
-	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
+	const selection = env ?? 'all'
+	const results: Array<{ env: string; value: string | null; error?: string }> = []
+	const targets = resolveEnvFiles(config, selection)
 
-	for (const e of envs) {
-		const envPath = getEnvFilePath(config, e)
+	for (const target of targets) {
 		try {
-			const envRecord = await loadEnvFile(envPath)
+			const envRecord = await loadEnvFile(target.path, { env: target.env })
 			const value = envRecord[key] ?? null
-			results.push({ env: e, value })
-		} catch {
-			results.push({ env: e, value: null })
+			results.push({ env: target.env, value })
+		} catch (error) {
+			results.push({
+				env: target.env,
+				value: null,
+				error: (error as Error).message,
+			})
 		}
 	}
 
-	if (env === 'all') {
+	if (selection === 'all') {
 		console.log('')
 		const data = results.map((r) => ({
 			env: r.env,
-			value: r.value ?? '(not set)',
+			value: r.error ? '(error)' : (r.value ?? '(not set)'),
+			status: r.error ?? 'ok',
 		}))
 		console.table(data)
+		if (results.some((result) => result.error)) {
+			process.exit(1)
+		}
 	} else {
-		const value = results[0]?.value
+		const result = results[0]
+		if (result?.error) {
+			console.error(result.error)
+			process.exit(1)
+		}
+		const value = result?.value
 		if (value === null || value === undefined) {
 			console.error(`Variable ${key} is not set`)
 			process.exit(1)

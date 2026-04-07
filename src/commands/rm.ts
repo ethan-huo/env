@@ -2,21 +2,19 @@ import { fmt } from 'argc/terminal'
 
 import type { AppHandlers } from '../cli'
 
-import { getEnvFilePath } from '../utils/dotenv'
+import { resolveEnvFiles } from '../utils/dotenv'
 
 export const runRm: AppHandlers['rm'] = async ({ input, context }) => {
 	const { config, env } = context
 	const { key } = input
 
-	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
+	const targets = resolveEnvFiles(config, env ?? 'dev')
 
-	for (const e of envs) {
-		const envPath = getEnvFilePath(config, e)
-
+	for (const target of targets) {
 		try {
-			const file = Bun.file(envPath)
+			const file = Bun.file(target.path)
 			if (!(await file.exists())) {
-				console.log(fmt.error(`${e}: file not found ${envPath}`))
+				console.log(fmt.error(`${target.env}: file not found ${target.path}`))
 				continue
 			}
 
@@ -28,14 +26,14 @@ export const runRm: AppHandlers['rm'] = async ({ input, context }) => {
 			const filtered = lines.filter((line) => !keyPattern.test(line))
 
 			if (filtered.length === lines.length) {
-				console.log(fmt.error(`${e}: variable ${key} not found`))
+				console.log(fmt.error(`${target.env}: variable ${key} not found`))
 				continue
 			}
 
-			await Bun.write(envPath, filtered.join('\n'))
-			console.log(fmt.success(`${e}: deleted ${key}`))
+			await Bun.write(target.path, filtered.join('\n'))
+			console.log(fmt.success(`${target.env}: deleted ${key}`))
 		} catch (error) {
-			console.log(fmt.error(`${e}: ${(error as Error).message}`))
+			console.log(fmt.error(`${target.env}: ${(error as Error).message}`))
 			process.exit(1)
 		}
 	}

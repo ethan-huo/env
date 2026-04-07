@@ -4,53 +4,61 @@ import { dirname } from 'node:path'
 
 import type { AppHandlers } from '../cli'
 
-import { loadEnvFile, shouldExclude } from '../utils/dotenv'
+import {
+	loadEnvFile,
+	resolveEnvFiles,
+	resolveKeysFilePath,
+	shouldExclude,
+} from '../utils/dotenv'
 
-export const runImport: AppHandlers['import'] = async ({ input }) => {
+export const runImport: AppHandlers['import'] = async ({ input, context }) => {
+	const { config, env } = context
 	const { source, file: targetPath } = input
-
-	if (!targetPath) {
-		console.error('Error: target file is required via --file')
-		process.exit(1)
-	}
 
 	try {
 		const envRecord = await loadEnvFile(source)
-		const keysExists = await Bun.file('.env.keys').exists()
-		const usePlain = !keysExists
-
-		if (usePlain) {
-			console.log(fmt.warn('.env.keys not found - importing as plain text'))
+		if (targetPath && env === 'all') {
+			throw new Error('`env import --file ...` does not support `--env all`')
 		}
+		const explicitTargetEnv: 'dev' | 'prod' =
+			env === 'prod' ? 'prod' : 'dev'
+		const targets = targetPath
+			? [{ env: explicitTargetEnv, path: targetPath }]
+			: resolveEnvFiles(config, env ?? 'dev')
 
-		const targetDir = dirname(targetPath)
-		if (targetDir && targetDir !== '.') {
-			await mkdir(targetDir, { recursive: true })
-		}
-
-		const targetFile = Bun.file(targetPath)
-		if (!(await targetFile.exists())) {
-			await Bun.write(targetPath, '# Imported by env\n')
-		}
-
-		let imported = 0
-		for (const [key, value] of Object.entries(envRecord)) {
-			if (shouldExclude(key, [])) continue
-
-			const args = ['dotenvx', 'set', key, value, '-f', targetPath]
-			if (usePlain) {
-				args.push('--plain')
+		for (const target of targets) {
+			const targetDir = dirname(target.path)
+			if (targetDir && targetDir !== '.') {
+				await mkdir(targetDir, { recursive: true })
 			}
 
-			const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
-			if (result.exitCode !== 0) {
-				const stderr = result.stderr.toString()
-				throw new Error(stderr || `dotenvx set failed for ${key}`)
+			const targetFile = Bun.file(target.path)
+			if (!(await targetFile.exists())) {
+				await Bun.write(target.path, '# Imported by env\n')
 			}
-			imported += 1
-		}
 
-		console.log(fmt.success(`imported: ${imported} variables -> ${targetPath}`))
+			let imported = 0
+			for (const [key, value] of Object.entries(envRecord)) {
+				if (shouldExclude(key, [])) continue
+
+				const args = ['dotenvx', 'set', key, value, '-f', target.path]
+				const keysFilePath = await resolveKeysFilePath(target.env)
+				if (keysFilePath) {
+					args.push('-fk', keysFilePath)
+				}
+
+				const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+				if (result.exitCode !== 0) {
+					const stderr = result.stderr.toString()
+					throw new Error(stderr || `dotenvx set failed for ${key}`)
+				}
+				imported += 1
+			}
+
+			console.log(
+				fmt.success(`imported (${target.env}): ${imported} variables -> ${target.path}`),
+			)
+		}
 	} catch (error) {
 		console.log(fmt.error((error as Error).message))
 		process.exit(1)

@@ -21,31 +21,38 @@ bun add github:ethan-huo/env
 # Initialize project
 env init
 
-# List variables
+# Query variables (defaults to both envs)
 env ls
 env ls --show-values
-env ls -e prod
-
-# Get/Set/Remove
 env get API_KEY
-env get API_KEY -e all          # compare across envs
-env set API_KEY "value"         # encrypted by default
-env set API_KEY "value" --plain # plain text
-env rm API_KEY
+env diff
 
-# Compare
-env diff                        # dev vs prod
-env diff --envs dev:prod
-env diff convex                 # dotenvx vs convex
+# Narrow query to one env
+env ls --env prod
+env get API_KEY --env dev
+env diff --env prod
+
+# Mutations default to dev
+env set API_KEY "value"         # encrypted by default, writes dev
+env set API_KEY "value" --plain # plain text, writes dev
+env rm API_KEY
+env sync
+
+# Mutate prod or both envs explicitly
+env set API_KEY "value" --env prod
+env set API_KEY "value" --env all
+env rm API_KEY --env prod
+env sync --env prod
 
 # Import (plain -> encrypted)
-env import .env -f .env.production
+env import .env
+env import .env --env prod
+env import .env --file .env.production
 
 # Install GitHub Actions secrets for CI
 env install-github-action
 
-# Sync (typegen + targets)
-env sync                        # single run
+# Watch mode
 env sync -w                     # watch mode
 env sync --dry-run
 ```
@@ -108,21 +115,42 @@ export type PrivateEnv = v.InferOutput<typeof privateEnvSchema>
 
 1. Edit `.env.development` and `.env.production`
 2. Run `dotenvx encrypt -f .env.development` to encrypt
-3. Store private keys in `.env.keys` (never commit) or set `DOTENV_PRIVATE_*` env vars
+3. Store private keys in project `.env.keys`, `~/.env.keys`, or set `DOTENV_PRIVATE_*` env vars
 4. Run `env install-github-action` to sync `DOTENV_PRIVATE_*` to GitHub Actions secrets
+
+## Environment Selection
+
+- Query commands (`get`, `ls`, `diff`) default to `all`
+- Mutating commands (`set`, `rm`, `sync`, `import`) default to `dev`
+- Writing to both environments requires `--env all`
+
+This keeps reads comprehensive and writes conservative.
+
+## Key Resolution
+
+When decrypting or encrypting, the CLI resolves keys in this order:
+
+1. Explicit `--file` / env target context
+2. `DOTENV_PRIVATE_KEY_*` environment variables
+3. Project `.env.keys`
+4. `~/.env.keys`
+5. dotenvx defaults for new encrypted writes
+
+Custom env filenames such as `.env.prod` are supported. The tool no longer
+guesses the key from the filename.
 
 ## Commands
 
 | Command                           | Description                                                             |
 | --------------------------------- | ----------------------------------------------------------------------- |
 | `env init`                        | Initialize project with config and env files                            |
-| `env ls`                          | List environment variables                                              |
-| `env get <key>`                   | Get variable value                                                      |
-| `env set <key> <value>`           | Set variable (encrypted by default)                                     |
-| `env rm <key>`                    | Remove variable                                                         |
-| `env diff [target]`               | Compare envs or dotenvx vs sync targets                                 |
-| `env import <source> -f <target>` | Import plain .env into encrypted env file                               |
-| `env install-github-action`       | Set DOTENV_PRIVATE_* keys in GitHub Actions secrets                     |
+| `env ls`                          | List environment variables (defaults to both envs)                      |
+| `env get <key>`                   | Get variable value (defaults to both envs)                              |
+| `env set <key> <value>`           | Set variable (encrypted by default, defaults to dev)                    |
+| `env rm <key>`                    | Remove variable (defaults to dev)                                       |
+| `env diff`                        | Compare local env file with sync targets                                |
+| `env import <source>`             | Import plain `.env` into the selected env file                          |
+| `env install-github-action`       | Set `DOTENV_PRIVATE_*` keys in GitHub Actions secrets                   |
 | `env sync`                        | Run typegen and sync to configured targets                              |
 
 ## License

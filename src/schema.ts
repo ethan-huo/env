@@ -8,7 +8,7 @@ export type Env = 'dev' | 'prod' | 'all'
 
 export const globalsSchema = s(
 	v.object({
-		env: v.optional(v.picklist(['dev', 'prod', 'all']), 'dev'),
+		env: v.optional(v.picklist(['dev', 'prod', 'all'])),
 	}),
 )
 
@@ -106,4 +106,3 @@ export const schema = {
 			),
 		),
 }
-

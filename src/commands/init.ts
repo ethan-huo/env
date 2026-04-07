@@ -1,5 +1,5 @@
 import { fmt } from 'argc/terminal'
-import { mkdir, copyFile } from 'node:fs/promises'
+import { mkdir, copyFile, cp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { AppHandlers } from '../cli'
@@ -97,7 +97,10 @@ export default defineConfig({
 	const envMdPath = `${refsDir}/env.md`
 	const envMdExists = await Bun.file(envMdPath).exists()
 	if (!envMdExists || force) {
-		const templatePath = join(import.meta.dir, '../../references/env.md')
+		const templatePath = join(
+			import.meta.dir,
+			'../../skills/env/references/project-guide.md',
+		)
 		const templateExists = await Bun.file(templatePath).exists()
 		if (templateExists) {
 			await mkdir(refsDir, { recursive: true })
@@ -108,7 +111,29 @@ export default defineConfig({
 		console.log(fmt.dim('- skip references/env.md (exists)'))
 	}
 
-	// 6. Update .gitignore
+	// 6. Install agent skill
+	const installedSkillPath = join(cwd, '.agents/skills/env')
+	const installedSkillExists = await Bun.file(
+		join(installedSkillPath, 'SKILL.md'),
+	).exists()
+	if (!installedSkillExists || force) {
+		const sourceSkillPath = join(import.meta.dir, '../../skills/env')
+		const sourceSkillExists = await Bun.file(
+			join(sourceSkillPath, 'SKILL.md'),
+		).exists()
+		if (sourceSkillExists) {
+			if (installedSkillExists && force) {
+				await rm(installedSkillPath, { recursive: true, force: true })
+			}
+			await mkdir(join(cwd, '.agents/skills'), { recursive: true })
+			await cp(sourceSkillPath, installedSkillPath, { recursive: true })
+			console.log(fmt.success('install .agents/skills/env'))
+		}
+	} else {
+		console.log(fmt.dim('- skip .agents/skills/env (exists)'))
+	}
+
+	// 7. Update .gitignore
 	const gitignorePath = `${cwd}/.gitignore`
 	const gitignoreFile = Bun.file(gitignorePath)
 	const gitignoreExists = await gitignoreFile.exists()

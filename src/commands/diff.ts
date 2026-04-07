@@ -5,28 +5,29 @@ import type { Config, EnvType, WranglerSyncConfig } from '../config'
 import type { AppHandlers } from '../cli'
 
 import { normalizeWranglerConfigs } from '../config'
-import { getEnvFilePath, loadEnvFile, shouldExclude } from '../utils/dotenv'
+import { loadEnvFile, resolveEnvFiles, shouldExclude } from '../utils/dotenv'
 import { getWranglerSecrets } from '../utils/sync-wrangler'
 
 export const runDiff: AppHandlers['diff'] = async ({ context }) => {
-	const { config, env: globalEnv } = context
+	const { config, env } = context
 
 	if (!config.sync?.convex && !config.sync?.wrangler) {
 		console.error('Error: no sync targets configured in env.config.ts')
 		process.exit(1)
 	}
 
-	// diff doesn't support 'all', default to 'dev'
-	const env = globalEnv === 'all' ? 'dev' : globalEnv
-	await diffAll(config, env)
+	const targets = resolveEnvFiles(config, env ?? 'all')
+	for (const target of targets) {
+		await diffAll(config, target.env)
+	}
 }
 
 async function diffAll(config: Config, env: EnvType) {
-	const envPath = getEnvFilePath(config, env)
+	const [{ path: envPath }] = resolveEnvFiles(config, env)
 	let envRecord: Record<string, string> = {}
 
 	try {
-		envRecord = await loadEnvFile(envPath)
+		envRecord = await loadEnvFile(envPath, { env })
 	} catch {
 		console.error(`Failed to load ${envPath}`)
 		process.exit(1)
@@ -111,12 +112,12 @@ async function diffAll(config: Config, env: EnvType) {
 	}
 
 	if (rows.length === 0) {
-		console.log(fmt.success(`All ${allKeys.size} keys are in sync`))
+		console.log(fmt.success(`[${env}] All ${allKeys.size} keys are in sync`))
 		return
 	}
 
 	console.log('')
-	fmt.warn(`${rows.length} keys out of sync`)
+	fmt.warn(`[${env}] ${rows.length} keys out of sync`)
 	console.log('')
 	printTable(columns, rows)
 	console.log()

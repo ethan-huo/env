@@ -8,9 +8,9 @@ import type { Config, WranglerSyncConfig } from '../config'
 import type { AppHandlers } from '../cli'
 
 import {
-	getEnvFilePath,
 	loadEnvFile,
 	parseEnvVars,
+	resolveEnvFiles,
 	serializeEnvRecord,
 } from '../utils/dotenv'
 import { normalizeWranglerConfigs } from '../config'
@@ -22,13 +22,14 @@ import { findProcessEnvUsageIssues } from '../utils/process-env-usage'
 export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	const { config, env } = context
 	const { watch: watchMode, dryRun } = input
+	const selection = env ?? 'dev'
 
 	if (!config.sync && !config.typegen) {
 		console.error('Error: please configure sync or typegen in env.config.ts')
 		process.exit(1)
 	}
 
-	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
+	const targets = resolveEnvFiles(config, selection)
 	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
 	if (wranglerConfigs.length > 0) {
 		for (const wranglerConfig of wranglerConfigs) {
@@ -44,21 +45,21 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 			}
 
 			if (envMapping) {
-				if (env === 'dev' && !envMapping.dev) {
+				if (selection === 'dev' && !envMapping.dev) {
 					console.error(
 						'Error: wrangler envMapping.dev is required for `-e dev`.',
 					)
 					process.exit(1)
 				}
 
-				if (env === 'prod' && !envMapping.prod) {
+				if (selection === 'prod' && !envMapping.prod) {
 					console.error(
 						'Error: wrangler envMapping.prod is required for `-e prod`.',
 					)
 					process.exit(1)
 				}
 
-				if (env === 'all' && (!envMapping.dev || !envMapping.prod)) {
+				if (selection === 'all' && (!envMapping.dev || !envMapping.prod)) {
 					console.error(
 						'Error: wrangler envMapping.dev and envMapping.prod are required for `-e all`.',
 					)
@@ -69,8 +70,8 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	}
 
 	if (!watchMode) {
-		for (const e of envs) {
-			await runSyncOnce(config, e, dryRun, env === 'all')
+		for (const target of targets) {
+			await runSyncOnce(config, target.env, dryRun, selection === 'all')
 		}
 		return
 	}
@@ -81,18 +82,24 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	const watchers: ReturnType<typeof watch>[] = []
 	let didScanUsage = false
 
-	for (const e of envs) {
-		const envPath = getEnvFilePath(config, e)
+	for (const target of targets) {
+		const envPath = target.path
 		console.log(`  watching: ${fmt.cyan(envPath)}`)
 
-			await runSyncOnce(config, e, dryRun, env === 'all', !didScanUsage)
-			didScanUsage = true
+		await runSyncOnce(config, target.env, dryRun, selection === 'all', !didScanUsage)
+		didScanUsage = true
 
 		const watcher = watch(envPath, { persistent: true }, async (eventType) => {
 			if (eventType === 'change') {
 				console.log('')
 				fmt.success(`Change detected: ${envPath}`)
-				await runSyncOnce(config, e, dryRun, env === 'all', true)
+				try {
+					await runSyncOnce(config, target.env, dryRun, selection === 'all', true)
+				} catch (error) {
+					console.log(
+						fmt.error(`${target.env}: ${(error as Error).message}`),
+					)
+				}
 				fmt.info('Waiting for changes...')
 			}
 		})
@@ -115,99 +122,145 @@ async function runSyncOnce(
 	allMode = false,
 	scanUsage = false,
 ) {
-	const envPath = getEnvFilePath(config, env)
+	const [{ path: envPath }] = resolveEnvFiles(config, env)
+	const envRecord = await loadEnvFile(envPath, { env })
+	const publicPrefixes = config.typegen?.publicPrefix ?? ['VITE_', 'PUBLIC_']
+	const vars = parseEnvVars(envRecord, publicPrefixes)
+	const envKeys = new Set(vars.map((v) => v.key))
 
-	try {
-		const envRecord = await loadEnvFile(envPath)
-		const publicPrefixes = config.typegen?.publicPrefix ?? ['VITE_', 'PUBLIC_']
-		const vars = parseEnvVars(envRecord, publicPrefixes)
-		const envKeys = new Set(vars.map((v) => v.key))
-
-		if (scanUsage) {
-			const issues = await findProcessEnvUsageIssues({ envKeys })
-			if (issues.length > 0) {
-				console.log(
-					fmt.warn(
-						`process.env references not in ${envPath} (${issues.length}):`,
-					),
-				)
-				for (const issue of issues) {
-					const sample = issue.locations.slice(0, 3).join(', ')
-					const suffix =
-						issue.locations.length > 3
-							? ` (+${issue.locations.length - 3} more)`
-							: ''
-					console.log(fmt.warn(`  - ${issue.key}: ${sample}${suffix}`))
-				}
+	if (scanUsage) {
+		const issues = await findProcessEnvUsageIssues({ envKeys })
+		if (issues.length > 0) {
+			console.log(
+				fmt.warn(
+					`process.env references not in ${envPath} (${issues.length}):`,
+				),
+			)
+			for (const issue of issues) {
+				const sample = issue.locations.slice(0, 3).join(', ')
+				const suffix =
+					issue.locations.length > 3
+						? ` (+${issue.locations.length - 3} more)`
+						: ''
+				console.log(fmt.warn(`  - ${issue.key}: ${sample}${suffix}`))
 			}
 		}
+	}
 
-		// Generate .env.local
-		if (env === 'dev') {
-			const cwd = process.cwd()
-			const localEnvPath = `${cwd}/.env.local`
-			if (dryRun) {
-				console.log(fmt.dim(`[dry-run] would decrypt to: ${localEnvPath}`))
-			} else {
-				await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
-				console.log(fmt.success(`decrypted: .env.local`))
-			}
-
-			if (!dryRun) {
-				await linkLocalEnvFiles(config.sync?.links ?? [], localEnvPath)
-			} else if ((config.sync?.links?.length ?? 0) > 0) {
-				const targets = resolveLinkTargets(config.sync?.links ?? [])
-				for (const target of targets) {
-					console.log(
-						fmt.dim(`[dry-run] would link: ${target} -> ${localEnvPath}`),
-					)
-				}
-			}
+	// Generate .env.local
+	if (env === 'dev') {
+		const cwd = process.cwd()
+		const localEnvPath = `${cwd}/.env.local`
+		if (dryRun) {
+			console.log(fmt.dim(`[dry-run] would decrypt to: ${localEnvPath}`))
+		} else {
+			await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
+			console.log(fmt.success(`decrypted: .env.local`))
 		}
 
-		// Typegen
-		if (config.typegen) {
-			const types = generateTypes(vars, config.typegen)
-			const output = config.typegen.output
-			const schema = config.typegen.schema ?? 'valibot'
-
-			if (dryRun) {
-				console.log(fmt.dim(`[dry-run] would generate types to: ${output}`))
+		if (!dryRun) {
+			await linkLocalEnvFiles(config.sync?.links ?? [], localEnvPath)
+		} else if ((config.sync?.links?.length ?? 0) > 0) {
+			const targets = resolveLinkTargets(config.sync?.links ?? [])
+			for (const target of targets) {
 				console.log(
-					fmt.dim(
-						`[dry-run] ${vars.filter((v) => v.scope === 'public').length} public, ${vars.filter((v) => v.scope === 'private').length} private`,
-					),
+					fmt.dim(`[dry-run] would link: ${target} -> ${localEnvPath}`),
 				)
-			} else {
-				await Bun.write(output, types)
-				console.log(
-					fmt.success(
-						`typegen: ${output} (${vars.filter((v) => v.scope === 'public').length} public, ${vars.filter((v) => v.scope === 'private').length} private)`,
-					),
-				)
-
-				if (schema !== 'none') {
-					const lazyPath = join(dirname(output), 'lazy.ts')
-					const lazyExists = await Bun.file(lazyPath).exists()
-					if (!lazyExists) {
-						await Bun.write(lazyPath, LAZY_TS_CONTENT)
-						console.log(fmt.success(`injected: ${lazyPath}`))
-					}
-				}
 			}
 		}
+	}
 
-		// Sync to Convex
-		if (config.sync?.convex) {
-			const result = await syncToConvex(
-				envRecord,
-				env,
-				config.sync.convex,
-				dryRun,
+	// Typegen
+	if (config.typegen) {
+		const types = generateTypes(vars, config.typegen)
+		const output = config.typegen.output
+		const schema = config.typegen.schema ?? 'valibot'
+
+		if (dryRun) {
+			console.log(fmt.dim(`[dry-run] would generate types to: ${output}`))
+			console.log(
+				fmt.dim(
+					`[dry-run] ${vars.filter((v) => v.scope === 'public').length} public, ${vars.filter((v) => v.scope === 'private').length} private`,
+				),
+			)
+		} else {
+			await Bun.write(output, types)
+			console.log(
+				fmt.success(
+					`typegen: ${output} (${vars.filter((v) => v.scope === 'public').length} public, ${vars.filter((v) => v.scope === 'private').length} private)`,
+				),
 			)
 
+			if (schema !== 'none') {
+				const lazyPath = join(dirname(output), 'lazy.ts')
+				const lazyExists = await Bun.file(lazyPath).exists()
+				if (!lazyExists) {
+					await Bun.write(lazyPath, LAZY_TS_CONTENT)
+					console.log(fmt.success(`injected: ${lazyPath}`))
+				}
+			}
+		}
+	}
+
+	// Sync to Convex
+	if (config.sync?.convex) {
+		const result = await syncToConvex(envRecord, env, config.sync.convex, dryRun)
+
+		if (dryRun) {
+			console.log(fmt.dim(`[dry-run] Convex (${env}):`))
+			if (result.added.length)
+				console.log(fmt.green(`  + ${result.added.join(', ')}`))
+			if (result.updated.length)
+				console.log(fmt.yellow(`  ~ ${result.updated.join(', ')}`))
+			if (result.removed.length)
+				console.log(fmt.red(`  - ${result.removed.join(', ')}`))
+			if (
+				!result.added.length &&
+				!result.updated.length &&
+				!result.removed.length
+			) {
+				console.log(fmt.dim('  no changes'))
+			}
+		} else {
+			const total =
+				result.added.length + result.updated.length + result.removed.length
+			if (total > 0) {
+				console.log(
+					fmt.success(
+						`Convex (${env}): ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
+					),
+				)
+			} else {
+				console.log(fmt.success(`Convex (${env}): no changes`))
+			}
+		}
+	}
+
+	// Sync to Wrangler
+	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
+	if (wranglerConfigs.length > 0) {
+		const hasMultiple = wranglerConfigs.length > 1
+		for (const [index, wranglerConfig] of wranglerConfigs.entries()) {
+			const label = formatWranglerLabel(wranglerConfig, index, hasMultiple)
+			const hasMultiEnv = await hasWranglerMultiEnv(
+				wranglerConfig.config ?? './wrangler.jsonc',
+			)
+
+			if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
+				console.log(
+					fmt.warn(
+						allMode
+							? `${label}: single-environment (all mode). Dev sync skipped; only prod is synced.`
+							: `${label}: single-environment. Dev sync skipped; use \`-e prod\` to sync.`,
+					),
+				)
+				continue
+			}
+
+			const result = await syncToWrangler(envRecord, env, wranglerConfig, dryRun)
+
 			if (dryRun) {
-				console.log(fmt.dim(`[dry-run] Convex (${env}):`))
+				console.log(fmt.dim(`[dry-run] ${label}:`))
 				if (result.added.length)
 					console.log(fmt.green(`  + ${result.added.join(', ')}`))
 				if (result.updated.length)
@@ -227,75 +280,14 @@ async function runSyncOnce(
 				if (total > 0) {
 					console.log(
 						fmt.success(
-							`Convex (${env}): ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
+							`${label}: ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
 						),
 					)
 				} else {
-					console.log(fmt.success(`Convex (${env}): no changes`))
+					console.log(fmt.success(`${label}: no changes`))
 				}
 			}
 		}
-
-		// Sync to Wrangler
-		const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
-		if (wranglerConfigs.length > 0) {
-			const hasMultiple = wranglerConfigs.length > 1
-			for (const [index, wranglerConfig] of wranglerConfigs.entries()) {
-				const label = formatWranglerLabel(wranglerConfig, index, hasMultiple)
-				const hasMultiEnv = await hasWranglerMultiEnv(
-					wranglerConfig.config ?? './wrangler.jsonc',
-				)
-
-				if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
-					console.log(
-						fmt.warn(
-							allMode
-								? `${label}: single-environment (all mode). Dev sync skipped; only prod is synced.`
-								: `${label}: single-environment. Dev sync skipped; use \`-e prod\` to sync.`,
-						),
-					)
-					continue
-				}
-
-				const result = await syncToWrangler(
-					envRecord,
-					env,
-					wranglerConfig,
-					dryRun,
-				)
-
-				if (dryRun) {
-					console.log(fmt.dim(`[dry-run] ${label}:`))
-					if (result.added.length)
-						console.log(fmt.green(`  + ${result.added.join(', ')}`))
-					if (result.updated.length)
-						console.log(fmt.yellow(`  ~ ${result.updated.join(', ')}`))
-					if (result.removed.length)
-						console.log(fmt.red(`  - ${result.removed.join(', ')}`))
-					if (
-						!result.added.length &&
-						!result.updated.length &&
-						!result.removed.length
-					) {
-						console.log(fmt.dim('  no changes'))
-					}
-				} else {
-					const total =
-						result.added.length + result.updated.length + result.removed.length
-					if (total > 0) {
-						console.log(
-							fmt.success(
-								`${label}: ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
-							),
-						)
-					} else {
-						console.log(fmt.success(`${label}: no changes`))
-					}
-				}
-			}
-		}
-	} catch (error) {
-		console.log(fmt.error(`${env}: ${(error as Error).message}`))
 	}
 }
 

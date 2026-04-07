@@ -1,17 +1,16 @@
-import dotenvx from '@dotenvx/dotenvx'
 import { fmt } from 'argc/terminal'
 
 import type { AppHandlers } from '../cli'
 
+import { loadKeysFile } from '../utils/dotenv'
+
 export const runInstallGithubAction: AppHandlers['install-github-action'] =
 	async ({ input }) => {
 		const { file: keysPath, repo } = input
-		const keysFile = Bun.file(keysPath)
 
-		// Case 1: .env.keys exists (local) → gh secret set
-		if (await keysFile.exists()) {
-			const content = await keysFile.text()
-			const parsed = dotenvx.parse(content, { processEnv: {} })
+		// Case 1: .env.keys exists (project/home/custom) → gh secret set
+		try {
+			const parsed = await loadKeysFile(keysPath)
 			const targets = Object.entries(parsed).filter(([key]) =>
 				key.startsWith('DOTENV_PRIVATE_'),
 			)
@@ -45,6 +44,8 @@ export const runInstallGithubAction: AppHandlers['install-github-action'] =
 				fmt.success('GitHub Actions secrets set from DOTENV_PRIVATE_* keys'),
 			)
 			return
+		} catch {
+			// fall through to CI env-based flow
 		}
 
 		// Case 2: process.env has keys (CI) → write .env.keys only

@@ -1,26 +1,27 @@
 import { fmt } from 'argc/terminal'
+import { mkdir } from 'node:fs/promises'
+import { dirname } from 'node:path'
 
 import type { AppHandlers } from '../cli'
 
-import { getEnvFilePath } from '../utils/dotenv'
+import { resolveEnvFiles, resolveKeysFilePath } from '../utils/dotenv'
 
 export const runSet: AppHandlers['set'] = async ({ input, context }) => {
 	const { config, env } = context
 	const { key, value, plain } = input
 
-	const envs = env === 'all' ? (['dev', 'prod'] as const) : ([env] as const)
+	const targets = resolveEnvFiles(config, env ?? 'dev')
 
-	const keysExists = await Bun.file('.env.keys').exists()
-	if (!keysExists && !plain) {
-		console.log(fmt.warn('.env.keys not found - writing plain text value'))
-	}
-
-	for (const e of envs) {
-		const envPath = getEnvFilePath(config, e)
+	for (const target of targets) {
+		await mkdir(dirname(target.path), { recursive: true })
 
 		try {
-			const args = ['dotenvx', 'set', key, value, '-f', envPath]
-			if (plain || !keysExists) {
+			const args = ['dotenvx', 'set', key, value, '-f', target.path]
+			const keysFilePath = await resolveKeysFilePath(target.env)
+			if (keysFilePath) {
+				args.push('-fk', keysFilePath)
+			}
+			if (plain) {
 				args.push('--plain')
 			}
 
@@ -33,9 +34,9 @@ export const runSet: AppHandlers['set'] = async ({ input, context }) => {
 
 			const displayValue =
 				value.length > 30 ? value.slice(0, 27) + '...' : value
-			console.log(fmt.success(`${e}: ${key}=${displayValue}`))
+			console.log(fmt.success(`${target.env}: ${key}=${displayValue}`))
 		} catch (error) {
-			console.log(fmt.error(`${e}: ${(error as Error).message}`))
+			console.log(fmt.error(`${target.env}: ${(error as Error).message}`))
 			process.exit(1)
 		}
 	}
