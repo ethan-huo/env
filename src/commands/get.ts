@@ -7,7 +7,8 @@ export const runGet: AppHandlers['get'] = async ({ input, context }) => {
 	const { key } = input
 
 	const selection = env ?? 'all'
-	const results: Array<{ env: string; value: string | null; error?: string }> = []
+	const results: Array<{ env: string; value: string | null; error?: string }> =
+		[]
 	const targets = resolveEnvFiles(config, selection)
 
 	for (const target of targets) {

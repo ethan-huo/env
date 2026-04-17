@@ -65,27 +65,27 @@ Create `env.config.ts`:
 import { defineConfig } from 'env/config'
 
 export default defineConfig({
-  envFiles: {
-    dev: '.env.development',
-    prod: '.env.production',
-  },
+	envFiles: {
+		dev: '.env.development',
+		prod: '.env.production',
+	},
 
-  typegen: {
-    output: './src/env.ts',
-    schema: 'valibot',  // 'valibot' | 'zod' | 'none'
-    publicPrefix: ['VITE_', 'PUBLIC_'],
-  },
+	typegen: {
+		output: './src/env.ts',
+		schema: 'valibot', // 'valibot' | 'zod' | 'none'
+		publicPrefix: ['VITE_', 'PUBLIC_'],
+	},
 
-  sync: {
-    convex: {
-      exclude: ['CONVEX_*'],
-    },
-    wrangler: {
-      config: './wrangler.jsonc',
-      exclude: ['VITE_*', 'PUBLIC_*'],
-    },
-    links: ['./web', './app2'],
-  },
+	sync: {
+		convex: {
+			exclude: ['CONVEX_*'],
+		},
+		wrangler: {
+			config: './wrangler.jsonc',
+			exclude: ['VITE_*', 'PUBLIC_*'],
+		},
+		links: ['./web', './app2'],
+	},
 })
 ```
 
@@ -98,13 +98,13 @@ The `sync` command generates typed environment schemas:
 import * as v from 'valibot'
 
 export const publicEnvSchema = v.object({
-  VITE_API_URL: v.pipe(v.string(), v.url()),
-  VITE_APP_NAME: v.string(),
+	VITE_API_URL: v.pipe(v.string(), v.url()),
+	VITE_APP_NAME: v.string(),
 })
 
 export const privateEnvSchema = v.object({
-  API_SECRET: v.string(),
-  DATABASE_URL: v.pipe(v.string(), v.url()),
+	API_SECRET: v.string(),
+	DATABASE_URL: v.pipe(v.string(), v.url()),
 })
 
 export type PublicEnv = v.InferOutput<typeof publicEnvSchema>
@@ -141,17 +141,17 @@ guesses the key from the filename.
 
 ## Commands
 
-| Command                           | Description                                                             |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `env init`                        | Initialize project with config and env files                            |
-| `env ls`                          | List environment variables (defaults to both envs)                      |
-| `env get <key>`                   | Get variable value (defaults to both envs)                              |
-| `env set <key> <value>`           | Set variable (encrypted by default, defaults to dev)                    |
-| `env rm <key>`                    | Remove variable (defaults to dev)                                       |
-| `env diff`                        | Compare local env file with sync targets                                |
-| `env import <source>`             | Import plain `.env` into the selected env file                          |
-| `env install-github-action`       | Set `DOTENV_PRIVATE_*` keys in GitHub Actions secrets                   |
-| `env sync`                        | Run typegen and sync to configured targets                              |
+| Command                     | Description                                           |
+| --------------------------- | ----------------------------------------------------- |
+| `env init`                  | Initialize project with config and env files          |
+| `env ls`                    | List environment variables (defaults to both envs)    |
+| `env get <key>`             | Get variable value (defaults to both envs)            |
+| `env set <key> <value>`     | Set variable (encrypted by default, defaults to dev)  |
+| `env rm <key>`              | Remove variable (defaults to dev)                     |
+| `env diff`                  | Compare local env file with sync targets              |
+| `env import <source>`       | Import plain `.env` into the selected env file        |
+| `env install-github-action` | Set `DOTENV_PRIVATE_*` keys in GitHub Actions secrets |
+| `env sync`                  | Run typegen and sync to configured targets            |
 
 ## License
 

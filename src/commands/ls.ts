@@ -18,7 +18,10 @@ export const runLs: AppHandlers['ls'] = async ({ input, context }) => {
 	for (const target of targets) {
 		try {
 			const envRecord = await loadEnvFile(target.path, { env: target.env })
-			const publicPrefixes = config.typegen?.publicPrefix ?? ['VITE_', 'PUBLIC_']
+			const publicPrefixes = config.typegen?.publicPrefix ?? [
+				'VITE_',
+				'PUBLIC_',
+			]
 			let vars = parseEnvVars(envRecord, publicPrefixes)
 			vars = filterEnvVars(vars, filter)
 

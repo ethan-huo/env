@@ -1,23 +1,22 @@
 import { fmt } from 'argc/terminal'
-
 import { watch } from 'fs'
 import { mkdir, lstat, readFile, readlink, symlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
-import type { Config, WranglerSyncConfig } from '../config'
 import type { AppHandlers } from '../cli'
+import type { Config, WranglerSyncConfig } from '../config'
 
+import { normalizeWranglerConfigs } from '../config'
 import {
 	loadEnvFile,
 	parseEnvVars,
 	resolveEnvFiles,
 	serializeEnvRecord,
 } from '../utils/dotenv'
-import { normalizeWranglerConfigs } from '../config'
+import { findProcessEnvUsageIssues } from '../utils/process-env-usage'
 import { syncToConvex } from '../utils/sync-convex'
 import { syncToWrangler } from '../utils/sync-wrangler'
 import { generateTypes, LAZY_TS_CONTENT } from '../utils/typegen'
-import { findProcessEnvUsageIssues } from '../utils/process-env-usage'
 
 export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	const { config, env } = context
@@ -81,7 +80,14 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 
 	if (!watchMode) {
 		for (const target of targets) {
-			await runSyncOnce(config, target.env, dryRun, selection === 'all', false, only)
+			await runSyncOnce(
+				config,
+				target.env,
+				dryRun,
+				selection === 'all',
+				false,
+				only,
+			)
 		}
 		return
 	}
@@ -96,7 +102,14 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 		const envPath = target.path
 		console.log(`  watching: ${fmt.cyan(envPath)}`)
 
-		await runSyncOnce(config, target.env, dryRun, selection === 'all', !didScanUsage, only)
+		await runSyncOnce(
+			config,
+			target.env,
+			dryRun,
+			selection === 'all',
+			!didScanUsage,
+			only,
+		)
 		didScanUsage = true
 
 		const watcher = watch(envPath, { persistent: true }, async (eventType) => {
@@ -104,11 +117,16 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 				console.log('')
 				fmt.success(`Change detected: ${envPath}`)
 				try {
-					await runSyncOnce(config, target.env, dryRun, selection === 'all', true, only)
-				} catch (error) {
-					console.log(
-						fmt.error(`${target.env}: ${(error as Error).message}`),
+					await runSyncOnce(
+						config,
+						target.env,
+						dryRun,
+						selection === 'all',
+						true,
+						only,
 					)
+				} catch (error) {
+					console.log(fmt.error(`${target.env}: ${(error as Error).message}`))
 				}
 				fmt.info('Waiting for changes...')
 			}
@@ -250,7 +268,12 @@ async function runSyncOnce(
 							)
 					}
 
-					const result = await syncToWrangler(envRecord, env, wranglerConfig, dryRun)
+					const result = await syncToWrangler(
+						envRecord,
+						env,
+						wranglerConfig,
+						dryRun,
+					)
 					return () => printSyncResult(label, result, dryRun)
 				})(),
 			)

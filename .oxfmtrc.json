@@ -8,14 +8,14 @@
 	"trailingComma": "all",
 	"useTabs": true,
 	"tabWidth": 2,
-	"experimentalSortImports": {
+	"sortImports": {
 		"groups": [
-			["builtin-type", "external-type"],
+			["type-builtin", "type-external"],
 			["builtin", "external"],
-			["internal-type", "internal"],
-			["parent-type", "sibling-type", "index-type"],
+			["type-internal", "type-subpath", "internal", "subpath"],
+			["type-parent", "type-sibling", "type-index"],
 			["parent", "sibling", "index"],
-			["side-effect", "side-effect-style", "style"]
+			["side_effect", "side_effect_style", "style"]
 		],
 		"internalPattern": ["~/", "@/"],
 		"newlinesBetween": true

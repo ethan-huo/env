@@ -1,7 +1,14 @@
-import { mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { afterEach, describe, expect, it } from 'bun:test'
+import {
+	mkdtemp,
+	mkdir,
+	readFile,
+	rename,
+	rm,
+	writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { afterEach, describe, expect, it } from 'bun:test'
 
 const CLI_PATH = resolve(import.meta.dir, '../src/cli.ts')
 const CONFIG_MODULE_PATH = resolve(import.meta.dir, '../src/config.ts')
@@ -26,7 +33,9 @@ async function makeTempDir(): Promise<string> {
 	return dir
 }
 
-function withIsolatedEnv(overrides: Record<string, string>): Record<string, string> {
+function withIsolatedEnv(
+	overrides: Record<string, string>,
+): Record<string, string> {
 	const env = { ...process.env } as Record<string, string>
 	for (const key of [...PRIVATE_KEY_ENV_NAMES, ...PUBLIC_KEY_ENV_NAMES]) {
 		delete env[key]
@@ -111,9 +120,13 @@ describe('cli behavior', () => {
 		await mkdir(homeDir, { recursive: true })
 		await rename(join(projectDir, '.env.keys'), join(homeDir, '.env.keys'))
 
-		const setResult = runCli(projectDir, ['--env', 'prod', 'set', 'FOO', 'new-secret'], {
-			HOME: homeDir,
-		})
+		const setResult = runCli(
+			projectDir,
+			['--env', 'prod', 'set', 'FOO', 'new-secret'],
+			{
+				HOME: homeDir,
+			},
+		)
 		expect(setResult.exitCode).toBe(0)
 
 		const encryptedContent = await readFile(
@@ -155,7 +168,10 @@ export default defineConfig({
 `,
 		)
 
-		await rename(join(projectDir, '.env.production'), join(projectDir, '.env.prod'))
+		await rename(
+			join(projectDir, '.env.production'),
+			join(projectDir, '.env.prod'),
+		)
 
 		const getResult = runCli(projectDir, ['--env', 'prod', 'get', 'FOO'], {
 			HOME: homeDir,

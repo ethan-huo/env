@@ -77,8 +77,7 @@ function extractProcessEnvRefs(
 ): Array<{ key: string; index: number }> {
 	const results: Array<{ key: string; index: number }> = []
 	const dotRegex = /process\.env(?:\?\.|\.)([A-Za-z0-9_]+)/g
-	const bracketRegex =
-		/process\.env(?:\?\.)?\[\s*(['"])([A-Za-z0-9_]+)\1\s*\]/g
+	const bracketRegex = /process\.env(?:\?\.)?\[\s*(['"])([A-Za-z0-9_]+)\1\s*\]/g
 
 	for (const match of text.matchAll(dotRegex)) {
 		if (!match[1]) continue

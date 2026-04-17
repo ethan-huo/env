@@ -1,8 +1,8 @@
 import { fmt, printTable, type TableColumn, type TableRow } from 'argc/terminal'
 import { dirname, resolve } from 'node:path'
 
-import type { Config, EnvType, WranglerSyncConfig } from '../config'
 import type { AppHandlers } from '../cli'
+import type { Config, EnvType, WranglerSyncConfig } from '../config'
 
 import { normalizeWranglerConfigs } from '../config'
 import { loadEnvFile, resolveEnvFiles, shouldExclude } from '../utils/dotenv'

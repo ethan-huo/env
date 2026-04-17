@@ -20,8 +20,7 @@ export const runImport: AppHandlers['import'] = async ({ input, context }) => {
 		if (targetPath && env === 'all') {
 			throw new Error('`env import --file ...` does not support `--env all`')
 		}
-		const explicitTargetEnv: 'dev' | 'prod' =
-			env === 'prod' ? 'prod' : 'dev'
+		const explicitTargetEnv: 'dev' | 'prod' = env === 'prod' ? 'prod' : 'dev'
 		const targets = targetPath
 			? [{ env: explicitTargetEnv, path: targetPath }]
 			: resolveEnvFiles(config, env ?? 'dev')
@@ -56,7 +55,9 @@ export const runImport: AppHandlers['import'] = async ({ input, context }) => {
 			}
 
 			console.log(
-				fmt.success(`imported (${target.env}): ${imported} variables -> ${target.path}`),
+				fmt.success(
+					`imported (${target.env}): ${imported} variables -> ${target.path}`,
+				),
 			)
 		}
 	} catch (error) {

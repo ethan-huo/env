@@ -1,7 +1,7 @@
+import { afterEach, describe, expect, it } from 'bun:test'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'bun:test'
 
 import { findProcessEnvUsageIssues } from '../src/utils/process-env-usage'
 

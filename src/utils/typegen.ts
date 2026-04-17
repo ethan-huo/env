@@ -105,7 +105,9 @@ function generateValibotTypes(
 	appendProcessEnvReader(lines, allVars)
 
 	// Lazy env
-	lines.push('export const env$ = lazy(() => v.parse(envSchema, readProcessEnv()))')
+	lines.push(
+		'export const env$ = lazy(() => v.parse(envSchema, readProcessEnv()))',
+	)
 	lines.push('')
 
 	lines.push(...generateEnvDtsHint())
@@ -154,7 +156,9 @@ function generateZodTypes(publicVars: EnvVar[], privateVars: EnvVar[]): string {
 	appendProcessEnvReader(lines, allVars)
 
 	// Lazy env
-	lines.push('export const env$ = lazy(() => envSchema.parse(readProcessEnv()))')
+	lines.push(
+		'export const env$ = lazy(() => envSchema.parse(readProcessEnv()))',
+	)
 	lines.push('')
 
 	lines.push(...generateEnvDtsHint())
