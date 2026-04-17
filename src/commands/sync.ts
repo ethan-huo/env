@@ -21,7 +21,7 @@ import { findProcessEnvUsageIssues } from '../utils/process-env-usage'
 
 export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 	const { config, env } = context
-	const { watch: watchMode, dryRun } = input
+	const { watch: watchMode, dryRun, only } = input
 	const selection = env ?? 'dev'
 
 	if (!config.sync && !config.typegen) {
@@ -31,7 +31,17 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 
 	const targets = resolveEnvFiles(config, selection)
 	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
-	if (wranglerConfigs.length > 0) {
+
+	if (only === 'convex' && !config.sync?.convex) {
+		console.error('Error: --only convex but sync.convex is not configured')
+		process.exit(1)
+	}
+	if (only === 'wrangler' && wranglerConfigs.length === 0) {
+		console.error('Error: --only wrangler but sync.wrangler is not configured')
+		process.exit(1)
+	}
+
+	if (only !== 'convex' && wranglerConfigs.length > 0) {
 		for (const wranglerConfig of wranglerConfigs) {
 			const envMapping = wranglerConfig.envMapping
 			const wranglerConfigPath = wranglerConfig.config ?? './wrangler.jsonc'
@@ -71,7 +81,7 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 
 	if (!watchMode) {
 		for (const target of targets) {
-			await runSyncOnce(config, target.env, dryRun, selection === 'all')
+			await runSyncOnce(config, target.env, dryRun, selection === 'all', false, only)
 		}
 		return
 	}
@@ -86,7 +96,7 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 		const envPath = target.path
 		console.log(`  watching: ${fmt.cyan(envPath)}`)
 
-		await runSyncOnce(config, target.env, dryRun, selection === 'all', !didScanUsage)
+		await runSyncOnce(config, target.env, dryRun, selection === 'all', !didScanUsage, only)
 		didScanUsage = true
 
 		const watcher = watch(envPath, { persistent: true }, async (eventType) => {
@@ -94,7 +104,7 @@ export const runSync: AppHandlers['sync'] = async ({ input, context }) => {
 				console.log('')
 				fmt.success(`Change detected: ${envPath}`)
 				try {
-					await runSyncOnce(config, target.env, dryRun, selection === 'all', true)
+					await runSyncOnce(config, target.env, dryRun, selection === 'all', true, only)
 				} catch (error) {
 					console.log(
 						fmt.error(`${target.env}: ${(error as Error).message}`),
@@ -121,6 +131,7 @@ async function runSyncOnce(
 	dryRun: boolean,
 	allMode = false,
 	scanUsage = false,
+	only?: 'convex' | 'wrangler',
 ) {
 	const [{ path: envPath }] = resolveEnvFiles(config, env)
 	const envRecord = await loadEnvFile(envPath, { env })
@@ -202,92 +213,87 @@ async function runSyncOnce(
 		}
 	}
 
-	// Sync to Convex
-	if (config.sync?.convex) {
-		const result = await syncToConvex(envRecord, env, config.sync.convex, dryRun)
+	// Run remote syncs in parallel; collect printers and emit output in fixed order.
+	const wantConvex = only !== 'wrangler'
+	const wantWrangler = only !== 'convex'
+	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
+	const remoteTasks: Array<Promise<() => void>> = []
 
-		if (dryRun) {
-			console.log(fmt.dim(`[dry-run] Convex (${env}):`))
-			if (result.added.length)
-				console.log(fmt.green(`  + ${result.added.join(', ')}`))
-			if (result.updated.length)
-				console.log(fmt.yellow(`  ~ ${result.updated.join(', ')}`))
-			if (result.removed.length)
-				console.log(fmt.red(`  - ${result.removed.join(', ')}`))
-			if (
-				!result.added.length &&
-				!result.updated.length &&
-				!result.removed.length
-			) {
-				console.log(fmt.dim('  no changes'))
-			}
-		} else {
-			const total =
-				result.added.length + result.updated.length + result.removed.length
-			if (total > 0) {
-				console.log(
-					fmt.success(
-						`Convex (${env}): ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
-					),
-				)
-			} else {
-				console.log(fmt.success(`Convex (${env}): no changes`))
-			}
-		}
+	if (wantConvex && config.sync?.convex) {
+		const convexConfig = config.sync.convex
+		remoteTasks.push(
+			(async () => {
+				const result = await syncToConvex(envRecord, env, convexConfig, dryRun)
+				return () => printSyncResult(`Convex (${env})`, result, dryRun)
+			})(),
+		)
 	}
 
-	// Sync to Wrangler
-	const wranglerConfigs = normalizeWranglerConfigs(config.sync?.wrangler)
-	if (wranglerConfigs.length > 0) {
+	if (wantWrangler && wranglerConfigs.length > 0) {
 		const hasMultiple = wranglerConfigs.length > 1
 		for (const [index, wranglerConfig] of wranglerConfigs.entries()) {
 			const label = formatWranglerLabel(wranglerConfig, index, hasMultiple)
-			const hasMultiEnv = await hasWranglerMultiEnv(
-				wranglerConfig.config ?? './wrangler.jsonc',
-			)
-
-			if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
-				console.log(
-					fmt.warn(
-						allMode
-							? `${label}: single-environment (all mode). Dev sync skipped; only prod is synced.`
-							: `${label}: single-environment. Dev sync skipped; use \`-e prod\` to sync.`,
-					),
-				)
-				continue
-			}
-
-			const result = await syncToWrangler(envRecord, env, wranglerConfig, dryRun)
-
-			if (dryRun) {
-				console.log(fmt.dim(`[dry-run] ${label}:`))
-				if (result.added.length)
-					console.log(fmt.green(`  + ${result.added.join(', ')}`))
-				if (result.updated.length)
-					console.log(fmt.yellow(`  ~ ${result.updated.join(', ')}`))
-				if (result.removed.length)
-					console.log(fmt.red(`  - ${result.removed.join(', ')}`))
-				if (
-					!result.added.length &&
-					!result.updated.length &&
-					!result.removed.length
-				) {
-					console.log(fmt.dim('  no changes'))
-				}
-			} else {
-				const total =
-					result.added.length + result.updated.length + result.removed.length
-				if (total > 0) {
-					console.log(
-						fmt.success(
-							`${label}: ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
-						),
+			remoteTasks.push(
+				(async () => {
+					const hasMultiEnv = await hasWranglerMultiEnv(
+						wranglerConfig.config ?? './wrangler.jsonc',
 					)
-				} else {
-					console.log(fmt.success(`${label}: no changes`))
-				}
-			}
+
+					if (!wranglerConfig.envMapping && !hasMultiEnv && env === 'dev') {
+						return () =>
+							console.log(
+								fmt.warn(
+									allMode
+										? `${label}: single-environment (all mode). Dev sync skipped; only prod is synced.`
+										: `${label}: single-environment. Dev sync skipped; use \`-e prod\` to sync.`,
+								),
+							)
+					}
+
+					const result = await syncToWrangler(envRecord, env, wranglerConfig, dryRun)
+					return () => printSyncResult(label, result, dryRun)
+				})(),
+			)
 		}
+	}
+
+	const printers = await Promise.all(remoteTasks)
+	for (const print of printers) print()
+}
+
+function printSyncResult(
+	label: string,
+	result: { added: string[]; updated: string[]; removed: string[] },
+	dryRun: boolean,
+): void {
+	if (dryRun) {
+		console.log(fmt.dim(`[dry-run] ${label}:`))
+		if (result.added.length)
+			console.log(fmt.green(`  + ${result.added.join(', ')}`))
+		if (result.updated.length)
+			console.log(fmt.yellow(`  ~ ${result.updated.join(', ')}`))
+		if (result.removed.length)
+			console.log(fmt.red(`  - ${result.removed.join(', ')}`))
+		if (
+			!result.added.length &&
+			!result.updated.length &&
+			!result.removed.length
+		) {
+			console.log(fmt.dim('  no changes'))
+		}
+		return
+	}
+
+	const total =
+		result.added.length + result.updated.length + result.removed.length
+	if (total > 0) {
+		console.log(
+			fmt.success(
+				`${label}: ${fmt.green(`+${result.added.length}`)} ${fmt.yellow(`~${result.updated.length}`)} ${fmt.red(`-${result.removed.length}`)}`,
+			),
+		)
+	} else {
+		console.log(fmt.success(`${label}: no changes`))
 	}
 }
 

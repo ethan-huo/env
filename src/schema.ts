@@ -69,6 +69,7 @@ export const schema = {
 			v.object({
 				watch: v.optional(v.boolean(), false),
 				dryRun: v.optional(v.boolean(), false),
+				only: v.optional(v.picklist(['convex', 'wrangler'])),
 			}),
 		),
 	),

@@ -3,6 +3,7 @@ import { basename, dirname, resolve } from 'node:path'
 import type { EnvType, WranglerSyncConfig } from '../config'
 
 import { shouldExclude } from './dotenv'
+import { runCommand } from './spawn'
 
 type WranglerConfig = WranglerSyncConfig
 
@@ -96,20 +97,14 @@ export async function getWranglerSecrets(
 	const baseArgs = ['wrangler', 'secret', 'list', '--format', 'json']
 	const args = config ? buildWranglerArgs(baseArgs, config, cwd, env) : baseArgs
 
-	const result = Bun.spawnSync(['bunx', ...args], {
-		stdout: 'pipe',
-		stderr: 'pipe',
-		cwd,
-	})
+	const result = await runCommand(['bunx', ...args], { cwd })
 
 	if (result.exitCode !== 0) {
-		const stderr = result.stderr.toString()
-		throw new Error(stderr || 'wrangler secret list failed')
+		throw new Error(result.stderr || 'wrangler secret list failed')
 	}
 
 	try {
-		const output = result.stdout.toString()
-		const secrets = JSON.parse(output) as Array<{ name: string }>
+		const secrets = JSON.parse(result.stdout) as Array<{ name: string }>
 		return new Set(secrets.map((s) => s.name))
 	} catch {
 		throw new Error('wrangler secret list returned invalid JSON')
@@ -130,20 +125,15 @@ async function bulkUploadSecrets(
 		const baseArgs = ['wrangler', 'secret', 'bulk', tempFile]
 		const args = buildWranglerArgs(baseArgs, config, cwd, env)
 
-		const result = Bun.spawnSync(['bunx', ...args], {
-			stdout: 'pipe',
-			stderr: 'pipe',
-			cwd,
-		})
+		const result = await runCommand(['bunx', ...args], { cwd })
 
 		if (result.exitCode !== 0) {
-			const stderr = result.stderr.toString()
-			throw new Error(`wrangler secret bulk failed: ${stderr}`)
+			throw new Error(`wrangler secret bulk failed: ${result.stderr}`)
 		}
 	} finally {
 		// 清理临时文件
 		const exists = await Bun.file(tempFile).exists()
-		if (exists) Bun.spawnSync(['rm', tempFile])
+		if (exists) await runCommand(['rm', tempFile])
 	}
 }
 
@@ -156,31 +146,21 @@ async function deleteWranglerSecret(
 	const baseArgs = ['wrangler', 'secret', 'delete', key, '--force']
 	const args = buildWranglerArgs(baseArgs, config, cwd, env)
 
-	let result = Bun.spawnSync(['bunx', ...args], {
-		stdout: 'pipe',
-		stderr: 'pipe',
-		cwd,
-	})
+	let result = await runCommand(['bunx', ...args], { cwd })
 
 	if (result.exitCode !== 0) {
-		const stderr = result.stderr.toString()
-		if (stderr.includes('Unknown argument: force')) {
+		if (result.stderr.includes('Unknown argument: force')) {
 			const retryArgs = buildWranglerArgs(
 				['wrangler', 'secret', 'delete', key],
 				config,
 				cwd,
 				env,
 			)
-			result = Bun.spawnSync(['bunx', ...retryArgs], {
-				stdout: 'pipe',
-				stderr: 'pipe',
-				cwd,
-			})
+			result = await runCommand(['bunx', ...retryArgs], { cwd })
 		}
 	}
 
 	if (result.exitCode !== 0) {
-		const stderr = result.stderr.toString()
-		throw new Error(stderr || `wrangler secret delete failed for ${key}`)
+		throw new Error(result.stderr || `wrangler secret delete failed for ${key}`)
 	}
 }

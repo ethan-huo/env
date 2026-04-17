@@ -8,26 +8,27 @@ description: >-
 
 ## Execution rules
 
+- Always invoke as `bun env ...`. Never call the bare `env ...` — `env` is a Unix system command (sets/prints process environment), and a plain `env get FOO` will be interpreted by the shell, not by this CLI. `bun env` resolves to the project-installed binary in `node_modules/.bin/`.
+- When developing this repository itself, use `bun run src/cli.ts ...` instead.
 - Run the CLI from the target project root so `env.config.ts`, `.env.*`, and `.env.keys` resolve correctly.
-- Prefer the installed CLI: `env ...`. When developing this repository itself, use `bun run src/cli.ts ...`.
-- Do not edit encrypted env files by hand when `env set`, `env rm`, or `env import` can express the change.
+- Do not edit encrypted env files by hand when `bun env set`, `bun env rm`, or `bun env import` can express the change.
 - Treat production writes as explicit actions. Query defaults are broad; mutation defaults are conservative.
 
 ## Environment selection
 
-- Query commands default to `all`: `env get`, `env ls`, `env diff`
-- Mutation commands default to `dev`: `env set`, `env rm`, `env import`, `env sync`
+- Query commands default to `all`: `bun env get`, `bun env ls`, `bun env diff`
+- Mutation commands default to `dev`: `bun env set`, `bun env rm`, `bun env import`, `bun env sync`
 - Writing both environments requires an explicit `--env all`
 - Narrow to production with `--env prod`
 
 Examples:
 
 ```bash
-env get DATABASE_URL
-env ls --show-values
-env set API_KEY "..." --env prod
-env rm LEGACY_TOKEN --env all
-env sync --env prod
+bun env get DATABASE_URL
+bun env ls --show-values
+bun env set API_KEY "..." --env prod
+bun env rm LEGACY_TOKEN --env all
+bun env sync --env prod
 ```
 
 ## Core workflow
@@ -37,9 +38,9 @@ env sync --env prod
 Use queries first when you need to understand divergence across environments:
 
 ```bash
-env get DATABASE_URL
-env ls --show-values
-env diff
+bun env get DATABASE_URL
+bun env ls --show-values
+bun env diff
 ```
 
 If you need command semantics or output expectations, read `references/project-guide.md`.
@@ -48,18 +49,27 @@ If you need command semantics or output expectations, read `references/project-g
 
 Use the smallest command that expresses the change:
 
-- Add or update one key: `env set KEY value`
-- Delete one key: `env rm KEY`
-- Import a plain env file: `env import .env`
+- Add or update one key: `bun env set KEY value`
+- Delete one key: `bun env rm KEY`
+- Import a plain env file: `bun env import .env`
 
 Do not default to `--env all` for writes unless the user explicitly wants both envs changed.
 
 ### 3. Sync derived artifacts and remote targets
 
-Run `env sync` after env changes when the project uses typegen, `.env.local`, Convex, or Wrangler sync.
+Run `bun env sync` after env changes when the project uses typegen, `.env.local`, Convex, or Wrangler sync.
+
+When only one remote target is relevant, narrow with `--only` to skip the other (Wrangler is typically the slow one):
+
+```bash
+bun env sync --only convex
+bun env sync --only wrangler
+```
+
+Local steps (`.env.local`, typegen) always run regardless of `--only`.
 
 - For sync target behavior, read `references/sync.md`
-- For project-facing workflow that `env init` installs, read `references/project-guide.md`
+- For project-facing workflow that `bun env init` installs, read `references/project-guide.md`
 
 ## Key resolution
 

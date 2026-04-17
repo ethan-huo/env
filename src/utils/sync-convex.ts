@@ -1,6 +1,7 @@
 import type { SyncConfig } from '../config'
 
 import { shouldExclude } from './dotenv'
+import { runCommand } from './spawn'
 
 /**
  * 同步环境变量到 Convex
@@ -67,16 +68,15 @@ async function getConvexEnv(
 			? ['convex', 'env', 'list', '--prod']
 			: ['convex', 'env', 'list']
 
-	const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+	const result = await runCommand(args)
 
 	if (result.exitCode !== 0) {
 		return {}
 	}
 
-	const output = result.stdout.toString()
 	const record: Record<string, string> = {}
 
-	for (const line of output.split('\n')) {
+	for (const line of result.stdout.split('\n')) {
 		const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
 		if (match?.[1]) {
 			record[match[1]] = match[2] ?? ''
@@ -96,10 +96,9 @@ async function setConvexEnv(
 			? ['convex', 'env', 'set', key, value, '--prod']
 			: ['convex', 'env', 'set', key, value]
 
-	const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+	const result = await runCommand(args)
 	if (result.exitCode !== 0) {
-		const stderr = result.stderr.toString()
-		throw new Error(stderr || `convex env set failed for ${key}`)
+		throw new Error(result.stderr || `convex env set failed for ${key}`)
 	}
 }
 
@@ -112,9 +111,8 @@ async function removeConvexEnv(
 			? ['convex', 'env', 'remove', key, '--prod']
 			: ['convex', 'env', 'remove', key]
 
-	const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+	const result = await runCommand(args)
 	if (result.exitCode !== 0) {
-		const stderr = result.stderr.toString()
-		throw new Error(stderr || `convex env remove failed for ${key}`)
+		throw new Error(result.stderr || `convex env remove failed for ${key}`)
 	}
 }

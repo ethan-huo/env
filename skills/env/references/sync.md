@@ -1,17 +1,30 @@
 # Sync Reference
 
-Use this reference when working on `env sync`, `env diff`, type generation, or sync target behavior.
+Use this reference when working on `bun env sync`, `bun env diff`, type generation, or sync target behavior.
 
-## What `env sync` does
+## What `bun env sync` does
 
-For the selected source env file, `env sync` may perform up to four actions:
+For the selected source env file, `bun env sync` may perform up to four actions:
 
 1. Decrypt dev into `.env.local`
 2. Generate TypeScript env types
 3. Sync to Convex
 4. Sync to Wrangler
 
-Mutation defaults to `dev`, so plain `env sync` operates on development unless `--env` is provided.
+Convex and Wrangler run in parallel; their output is buffered and printed in fixed order after both finish.
+
+Mutation defaults to `dev`, so plain `bun env sync` operates on development unless `--env` is provided.
+
+## Narrowing remote targets
+
+Use `--only` to skip slow remote targets when only one is relevant:
+
+```bash
+bun env sync --only convex     # skip Wrangler entirely
+bun env sync --only wrangler   # skip Convex entirely
+```
+
+`--only` only narrows remote sync. Local steps (`.env.local`, typegen, `lazy.ts` injection) always run because they are fast and feed downstream sync. Passing `--only convex` when `sync.convex` is not configured (or `--only wrangler` without `sync.wrangler`) fails fast.
 
 ## Type generation
 
@@ -31,7 +44,7 @@ Generated output is derived from the decrypted env record:
 - all other keys become `private`
 - `DOTENV_*` keys are excluded
 
-When schema mode is not `none`, `env sync` also injects a sibling `lazy.ts` helper if missing.
+When schema mode is not `none`, `bun env sync` also injects a sibling `lazy.ts` helper if missing.
 
 ## `.env.local`
 
@@ -61,8 +74,8 @@ Wrangler sync uploads secrets using `wrangler secret bulk` and removes stale key
 
 If `wrangler.jsonc` has no `env` block:
 
-- `env sync` / `env sync --env dev` skips Wrangler with a warning
-- `env sync --env prod` syncs the single Worker environment
+- `bun env sync` / `bun env sync --env dev` skips Wrangler with a warning
+- `bun env sync --env prod` syncs the single Worker environment
 
 This is deliberate: a single Worker target behaves closer to a deploy target than a local dev target.
 
@@ -86,15 +99,15 @@ Without `envMapping`, multi-env Wrangler sync should fail fast.
 
 ## Diff behavior
 
-`env diff` compares the selected local source env file against configured sync targets.
+`bun env diff` compares the selected local source env file against configured sync targets.
 
 - default query scope is `all`
-- `env diff` will print one table per env when no `--env` is specified
+- `bun env diff` will print one table per env when no `--env` is specified
 - excludes from sync config also affect diff visibility
 
 ## Failure semantics
 
-Single-run `env sync` must exit non-zero on real failures:
+Single-run `bun env sync` must exit non-zero on real failures:
 
 - missing source env file
 - decrypt failure
