@@ -183,8 +183,17 @@ async function runSyncOnce(
 		if (dryRun) {
 			console.log(fmt.dim(`[dry-run] would decrypt to: ${localEnvPath}`))
 		} else {
-			await Bun.write(localEnvPath, serializeEnvRecord(envRecord) + '\n')
-			console.log(fmt.success(`decrypted: .env.local`))
+			// Why: skip write when content unchanged. A no-op write still bumps
+			// mtime, which trips file watchers (e.g. Vite restarts dev servers on
+			// .env.local changes) and causes spurious restarts every time
+			// `sync --watch` boots.
+			const next = serializeEnvRecord(envRecord) + '\n'
+			const wrote = await writeIfChanged(localEnvPath, next)
+			console.log(
+				wrote
+					? fmt.success(`decrypted: .env.local`)
+					: fmt.dim(`unchanged: .env.local`),
+			)
 		}
 
 		if (!dryRun) {
@@ -213,11 +222,14 @@ async function runSyncOnce(
 				),
 			)
 		} else {
-			await Bun.write(output, types)
+			// Why: see note on .env.local write — avoid mtime-only bumps that
+			// trigger downstream watchers / dev server restarts.
+			const wrote = await writeIfChanged(output, types)
+			const counts = `${vars.filter((v) => v.scope === 'public').length} public, ${vars.filter((v) => v.scope === 'private').length} private`
 			console.log(
-				fmt.success(
-					`typegen: ${output} (${vars.filter((v) => v.scope === 'public').length} public, ${vars.filter((v) => v.scope === 'private').length} private)`,
-				),
+				wrote
+					? fmt.success(`typegen: ${output} (${counts})`)
+					: fmt.dim(`typegen: ${output} unchanged (${counts})`),
 			)
 
 			if (schema !== 'none') {
@@ -336,6 +348,18 @@ async function linkLocalEnvFiles(
 function resolveLinkTargets(links: string[]): string[] {
 	const cwd = process.cwd()
 	return links.map((link) => resolve(cwd, link, '.env.local'))
+}
+
+// Writes `content` to `path` only if the existing file differs. Returns true
+// when a write occurred. Preserves mtime on no-op to keep downstream watchers
+// quiet (e.g. Vite, wrangler, convex dev).
+async function writeIfChanged(path: string, content: string): Promise<boolean> {
+	const prev = await Bun.file(path)
+		.text()
+		.catch(() => null)
+	if (prev === content) return false
+	await Bun.write(path, content)
+	return true
 }
 
 async function ensureSymlink(source: string, target: string): Promise<void> {
