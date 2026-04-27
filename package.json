@@ -24,7 +24,7 @@
 		"@typescript/native-preview": "^7.0.0-dev.20260421.2"
 	},
 	"peerDependencies": {
-		"argc": "github:ethan-huo/argc#v0.0.2",
+		"argc": "github:ethan-huo/argc#v1.0.0",
 		"typescript": "npm:@typescript/typescript6@^6.0.0"
 	}
 }
