@@ -88,3 +88,4 @@ For a new project with no `.env.keys`, prefer symlinking `~/.env.keys` over mint
 
 - `references/project-guide.md`: user-facing workflow, command examples, generated files, private keys
 - `references/sync.md`: typegen, `.env.local`, Convex, Wrangler, and sync edge cases
+- `references/github-actions.md`: landing GitHub Actions CI/CD — secret bootstrap, setup action, deploy injection, remote sync

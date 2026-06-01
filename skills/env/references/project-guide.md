@@ -141,6 +141,9 @@ there is nothing to reuse.
 
 ## CI Notes
 
+For the full GitHub Actions setup — secret bootstrap, setup action, deploy-time
+injection, and remote sync — see `github-actions.md`.
+
 - In CI, set `DOTENV_PRIVATE_*` secrets as environment variables.
 - Run `bun env install-github-action` locally once to sync keys to GitHub Actions.
 - In GitHub Actions, running `bun env install-github-action` will write `.env.keys` from env vars.
