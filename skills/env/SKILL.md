@@ -82,27 +82,9 @@ The CLI resolves decryption/encryption keys in this order:
 
 Custom env filenames such as `.env.prod` are supported; the tool does not infer the environment from the filename string.
 
-### Initializing keys for a new project
-
-`bun env init` does not create or link `.env.keys`. When a project has none — a fresh init or a clean checkout — reuse the machine-wide key store instead of minting a new one:
-
-1. If `~/.env.keys` exists, symlink it into the project so this project shares the one keypair you already manage:
-
-   ```bash
-   ln -s ~/.env.keys .env.keys
-   ```
-
-   `init` already gitignores `.env.keys`, so the link is never committed.
-
-2. Only if `~/.env.keys` is absent, let dotenvx mint a fresh keypair on the first encrypted write (e.g. `bun env set FOO bar`), then promote it to the user scope so the next project can reuse it:
-
-   ```bash
-   mv .env.keys ~/.env.keys && ln -s ~/.env.keys .env.keys
-   ```
-
-Why: one keypair per machine keeps every project's encrypted vars decryptable and avoids fragmenting private keys across projects. Mint a fresh key only when there is nothing to reuse.
+For a new project with no `.env.keys`, prefer symlinking `~/.env.keys` over minting a new key — see `references/project-guide.md`.
 
 ## When to read references
 
-- `references/project-guide.md`: user-facing workflow, command examples, generated files
+- `references/project-guide.md`: user-facing workflow, command examples, generated files, private keys
 - `references/sync.md`: typegen, `.env.local`, Convex, Wrangler, and sync edge cases
