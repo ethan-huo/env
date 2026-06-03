@@ -1,7 +1,14 @@
 import { fmt } from 'argc/terminal'
 import { watch } from 'fs'
-import { mkdir, lstat, readFile, readlink, symlink } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import {
+	mkdir,
+	lstat,
+	readFile,
+	readlink,
+	symlink,
+	unlink,
+} from 'node:fs/promises'
+import { dirname, join, relative, resolve } from 'node:path'
 
 import type { AppHandlers } from '../cli'
 import type { Config, WranglerSyncConfig } from '../config'
@@ -201,9 +208,8 @@ async function runSyncOnce(
 		} else if ((config.sync?.links?.length ?? 0) > 0) {
 			const targets = resolveLinkTargets(config.sync?.links ?? [])
 			for (const target of targets) {
-				console.log(
-					fmt.dim(`[dry-run] would link: ${target} -> ${localEnvPath}`),
-				)
+				const linkSource = relative(dirname(target), localEnvPath)
+				console.log(fmt.dim(`[dry-run] would link: ${target} -> ${linkSource}`))
 			}
 		}
 	}
@@ -364,19 +370,22 @@ async function writeIfChanged(path: string, content: string): Promise<boolean> {
 
 async function ensureSymlink(source: string, target: string): Promise<void> {
 	const dir = dirname(target)
+	const linkSource = relative(dir, source)
 	await mkdir(dir, { recursive: true })
 
 	try {
 		const stat = await lstat(target)
 		if (stat.isSymbolicLink()) {
 			const existing = await readlink(target)
-			if (existing === source) {
+			if (existing === linkSource) {
 				console.log(fmt.dim(`- skip link (exists): ${target}`))
 				return
 			}
-			console.log(
-				fmt.warn(`- skip link (points elsewhere): ${target} -> ${existing}`),
-			)
+			// Why: sync.links owns symlinks it creates. Repairing stale targets keeps
+			// copied/moved projects from silently reading another project's env file.
+			await unlink(target)
+			await symlink(linkSource, target)
+			console.log(fmt.success(`relinked: ${target} -> ${linkSource}`))
 			return
 		}
 
@@ -386,8 +395,8 @@ async function ensureSymlink(source: string, target: string): Promise<void> {
 			throw error
 		}
 
-		await symlink(source, target)
-		console.log(fmt.success(`linked: ${target} -> ${source}`))
+		await symlink(linkSource, target)
+		console.log(fmt.success(`linked: ${target} -> ${linkSource}`))
 	}
 }
 

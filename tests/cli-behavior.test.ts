@@ -3,8 +3,10 @@ import {
 	mkdtemp,
 	mkdir,
 	readFile,
+	readlink,
 	rename,
 	rm,
+	symlink,
 	writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -203,6 +205,47 @@ export default defineConfig({
 
 		expect(result.exitCode).toBe(1)
 		expect(output).toContain('File not found')
+	})
+
+	it('creates relative sync links and repairs stale managed symlinks', async () => {
+		const projectDir = await makeTempDir()
+		const oldProjectDir = await makeTempDir()
+
+		await writeFileIn(projectDir, '.env.development', 'VITE_URL=dev\n')
+		await writeFileIn(
+			projectDir,
+			'env.config.ts',
+			`import { defineConfig } from '${CONFIG_MODULE_PATH}'
+
+export default defineConfig({
+	sync: {
+		links: ['./web'],
+	},
+})
+`,
+		)
+
+		const firstResult = runCli(projectDir, ['sync'])
+		expect(firstResult.exitCode).toBe(0)
+		expect(await readlink(join(projectDir, 'web/.env.local'))).toBe(
+			'../.env.local',
+		)
+
+		await rm(join(projectDir, 'web/.env.local'))
+		await symlink(
+			join(oldProjectDir, '.env.local'),
+			join(projectDir, 'web/.env.local'),
+		)
+
+		const repairResult = runCli(projectDir, ['sync'])
+		const output =
+			repairResult.stdout.toString() + repairResult.stderr.toString()
+
+		expect(repairResult.exitCode).toBe(0)
+		expect(await readlink(join(projectDir, 'web/.env.local'))).toBe(
+			'../.env.local',
+		)
+		expect(output).toContain('relinked:')
 	})
 
 	it('init installs the env skill into .agents/skills/env', async () => {
